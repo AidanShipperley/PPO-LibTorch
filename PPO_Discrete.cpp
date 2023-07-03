@@ -287,9 +287,13 @@ std::vector<torch::Tensor> PPO_Discrete::computeActionLogic(const torch::Tensor&
 
     torch::NoGradGuard no_grad;
 
-    auto [action, logprob, entropy, value] = m_agent->getActionAndValueDiscrete(next_obs, input_action);
+    std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(next_obs, input_action);
 
-    return { action, logprob, entropy, value, value.flatten() };
+    return { actionsAndValues[0],
+            actionsAndValues[1],
+            actionsAndValues[2],
+            actionsAndValues[3],
+            actionsAndValues[3].flatten() };
 
 }
 
@@ -629,13 +633,14 @@ void PPO_Discrete::train() {
                 torch::Tensor mb_inds = b_inds.index({ torch::indexing::Slice(start, end) }); // Create a slice of the tensors to index
 
                 // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
-                auto [unused_action, newlogprob, entropy, newvalue] = m_agent->getActionAndValueDiscrete(
+                // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
+                std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(
                     b_obs.index({ mb_inds }),
                     b_actions.to(torch::kLong).index({ mb_inds })
                 );
 
                 // Logarithmic subtraction between the new log probabilities - old log probabilities associated w/ the actions in the policy rollout phase
-                torch::Tensor logratio = newlogprob - b_logprobs.index({ mb_inds });
+                torch::Tensor logratio = actionsAndValues[1] - b_logprobs.index({ mb_inds });
                 torch::Tensor ratio = logratio.exp();
 
                 approx_kl = getApproxKLAndClippedObj(ratio, logratio);
@@ -653,7 +658,7 @@ void PPO_Discrete::train() {
                                                                  // equivalent to min of positives like in paper
 
                 // Clipping value loss
-                newvalue = newvalue.view(-1);
+                torch::Tensor newvalue = actionsAndValues[3].view(-1);
                 if (m_clip_vloss) { // Original implementation uses clipping of value loss
 
                     torch::Tensor v_loss_unclipped = (newvalue - b_returns.index({ mb_inds })) * \
@@ -678,7 +683,7 @@ void PPO_Discrete::train() {
                 }
 
                 // Entropy loss -- measure of chaos in action probability distribution
-                entropy_loss = entropy.mean();
+                entropy_loss = actionsAndValues[2].mean();
 
                 // Combine losses to get final loss value
                 loss =                  (pg_loss)       -     (m_ent_coef * entropy_loss)     +       (v_loss * m_vf_coef);

@@ -25,7 +25,7 @@ public:
     ~Agent();
     torch::nn::Linear ppoLayerInit(torch::nn::Linear layer, double stdDev = sqrt(2), const double bias_const = 0.0);
     torch::Tensor getValue(torch::Tensor x);
-    std::array<torch::Tensor, 4> getActionAndValueDiscrete(torch::Tensor x, torch::Tensor action = torch::Tensor());
+    std::vector<torch::Tensor> getActionAndValueDiscrete(torch::Tensor x, torch::Tensor action = torch::Tensor());
     std::array<torch::Tensor, 4> getActionAndValueMasked(torch::Tensor x, const torch::Tensor& mask, torch::Tensor action = torch::Tensor());
     void printAgent();
 

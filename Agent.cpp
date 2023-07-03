@@ -121,7 +121,7 @@ torch::Tensor Agent::getValue(torch::Tensor x) {
 // Implement actors inference bundled with critic's 
 // inference.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 4> Agent::getActionAndValueDiscrete(torch::Tensor x, torch::Tensor action) {
+std::vector<torch::Tensor> Agent::getActionAndValueDiscrete(torch::Tensor x, torch::Tensor action) {
 
     torch::Tensor logits = m_Actor->forward(x);
     Categorical categorical = Categorical(logits, m_device);
@@ -130,7 +130,7 @@ std::array<torch::Tensor, 4> Agent::getActionAndValueDiscrete(torch::Tensor x, t
         action = categorical.sample();
     }
 
-    return { action, categorical.log_prob(action), categorical.entropy(), m_Critic->forward(x) };
+    return { action, categorical.log_prob(action.squeeze()), categorical.entropy(), m_Critic->forward(x) };
 
 }
 
