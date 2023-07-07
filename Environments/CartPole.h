@@ -25,7 +25,6 @@ class CartPole {
       float x_threshold;
 
       // Random number generation
-      std::random_device rd;
       std::mt19937 gen;
       std::uniform_real_distribution<float> dis;
 
@@ -46,7 +45,7 @@ class CartPole {
 	  float episode_reward;
 
 	  // Construction and Destruction
-	  CartPole();
+	  CartPole(int seed);
 	  ~CartPole();
 
       /*

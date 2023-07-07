@@ -1,7 +1,7 @@
 #include "CartPole.h"
 
-CartPole::CartPole() 
-    : gen(rd()), dis(-0.05f, 0.05f) { // initialize gen with rd() and dis with desired range
+CartPole::CartPole(int seed) 
+    : gen(seed), dis(-0.05f, 0.05f) { // initialize gen with rd() and dis with desired range
 
     gravity = 9.8f;
     mass_cart = 1.0f;
@@ -30,7 +30,6 @@ CartPole::CartPole()
 CartPole::~CartPole() {
 
 }
-
 
 std::vector<float> CartPole::reset() {
 

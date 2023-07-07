@@ -14,6 +14,7 @@
 
 #include "Agent.h"
 #include "ThreadPool.h"
+#include "Utils.h"
 #include "Environments/MountainCar.h"
 #include "Environments/CartPole.h"
 
@@ -24,13 +25,13 @@ public:
     ~PPO_Discrete();
 
     // Setup
-    std::string formatString(std::string& str);
     void getArgs();
+    void loadPolicyFromCheckpoint();
 
     // ALGO LOGIC 
     std::vector<torch::Tensor> computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& action);
     std::array<torch::Tensor, 2> calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done);
-    torch::Tensor getApproxKLAndClippedObj(torch::Tensor& ratio, torch::Tensor& logratio);
+    torch::Tensor getApproxKLAndClippedObj(const torch::Tensor& ratio, const torch::Tensor& logratio);
 
     void train();
 
@@ -43,13 +44,10 @@ public:
                          torch::Tensor& approx_kl, torch::Tensor& entropy_loss, torch::Tensor& explained_var, torch::Tensor& loss,
                          torch::Tensor& pg_loss, torch::Tensor& v_loss);
     template<typename T> void printElement(T t, const int& width);
-    float getVectorMean(std::vector<float> vector);
 
     // Hyperparameters
     int                                     m_obs_size;
     int                                     m_action_size;
-    float                                   m_action_high;
-    float                                   m_action_low;
     float                                   m_learning_rate;          // The learning rate of the experiment
     int                                     m_seed;                   // The seed of the experiment for consistent test results
     int                                     m_total_timesteps;        // The total timesteps of the experiments
@@ -98,6 +96,7 @@ public:
     std::vector<float>                      m_clipfracs;
     std::deque<int>                         m_episode_lengths;
     std::deque<int>                         m_episode_rewards;
+    unsigned int                            m_global_step;
 
     // Thread pool
     std::shared_ptr<ThreadPool>             m_threadPool;

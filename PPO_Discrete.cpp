@@ -6,8 +6,6 @@ PPO_Discrete::PPO_Discrete() {
     // First initialize all PPO hyperparameters to their defaults
     m_obs_size = 2;
     m_action_size = 1;
-    m_action_high = 1.0f; // Only used in continuous action spaces
-    m_action_low = -1.0f; // Only used in continuous action spaces
     m_learning_rate = 0.0003;
     m_seed = 1;
     m_total_timesteps = 100000;
@@ -32,6 +30,8 @@ PPO_Discrete::PPO_Discrete() {
 
     m_batch_size = int(m_num_envs * m_num_steps);
     m_minibatch_size = int(m_batch_size / m_num_minibatches);
+
+    m_global_step = 0;
 
     // Now check if there's a config file, and if so, update hyperparams based on sheet
     PPO_Discrete::getArgs();
@@ -68,7 +68,7 @@ PPO_Discrete::PPO_Discrete() {
     std::cout << "m_obs_size: " << m_obs_size << std::endl;
     std::cout << "m_action_size: " << m_action_size << std::endl;
 
-    m_agent = std::make_shared<Agent>(m_obs_size, m_action_size, m_device);
+    m_agent = std::make_shared<Agent>(m_obs_size, m_action_size + 1, m_device);
     m_agent->to(*m_device);
 
     // Initialize Adam optimizer with respect to agents parameters
@@ -76,9 +76,12 @@ PPO_Discrete::PPO_Discrete() {
         m_agent->parameters(), torch::optim::AdamWOptions(m_learning_rate).eps(1e-5)
     );
 
+    // If any checkpoints exist, load them and resume previous training
+    loadPolicyFromCheckpoint();
+
     // Initialize Environments
     for (int i = 0; i < m_num_envs; i++) {
-        m_envs.push_back(std::make_shared<CartPole>());
+        m_envs.push_back(std::make_shared<CartPole>(m_seed));
     }
     std::cout << "made envs" << std::endl;
 
@@ -97,19 +100,6 @@ PPO_Discrete::PPO_Discrete() {
 PPO_Discrete::~PPO_Discrete() {
 
 
-}
-
-
-std::string PPO_Discrete::formatString(std::string& str) {
-    // Remove whitespace
-    str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-
-    // Make all lowercase
-    std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) { return std::tolower(c); } // correct
-    );
-
-    return str;
 }
 
 void PPO_Discrete::getArgs() {
@@ -134,7 +124,7 @@ void PPO_Discrete::getArgs() {
 
         // Loop through whole file for specific hyperparameters
         while (getline(configFile, configText)) {
-            configText = PPO_Discrete::formatString(configText); // Remove whitespaces and makes lowercase
+            configText = PPOUtils::formatString(configText); // Remove whitespaces and makes lowercase
             // Check to make sure hyperparameter is valid
             bool identified = false;
             for (int i = 0; i < hyperParamStrings.size(); i++) {
@@ -149,16 +139,6 @@ void PPO_Discrete::getArgs() {
                     else if (hyperParamStrings.at(i) == "action_size") {
                         m_action_size = stoi(configText.substr(configText.find("=") + 1));
                         std::cout << "Using config file action_size = " << m_action_size << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "action_high") {
-                        m_action_high = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file action_high = " << m_action_high << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "action_low") {
-                        m_action_low = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file action_low = " << m_action_low << std::endl;
                     }
 
                     else if (hyperParamStrings.at(i) == "learning_rate") {
@@ -264,7 +244,7 @@ void PPO_Discrete::getArgs() {
                     else if (hyperParamStrings.at(i) == "max_episode_steps") {
                         m_max_episode_steps = stoi(configText.substr(configText.find("=") + 1));
                         std::cout << "Using config file max_episode_steps = " << m_max_episode_steps << std::endl;
-                        }
+                    }
 
                 }
             }
@@ -375,14 +355,13 @@ std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& ne
 // is a way of limiting the updates to the policy during optimization 
 // to make training more stable.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-torch::Tensor PPO_Discrete::getApproxKLAndClippedObj(torch::Tensor& ratio, torch::Tensor& logratio) {
+torch::Tensor PPO_Discrete::getApproxKLAndClippedObj(const torch::Tensor& ratio, const torch::Tensor& logratio) {
 
     torch::NoGradGuard no_grad;
 
     // Measure of how often the clipped objective is actually triggered
     torch::Tensor clippedRatios = torch::gt((ratio - 1.0).abs(), m_clip_coef);
     m_clipfracs.push_back(float(clippedRatios.count_nonzero().item<int>()) / float(clippedRatios.size(0)));
-    //m_clipfracs = float(clippedRatios.count_nonzero().item<int>() / clippedRatios.size(0));
 
     //torch::Tensor old_approx_kl = (-logratio.mean()); // Original implementation approximates -log ratio
     torch::Tensor approx_kl = ((ratio - 1) - logratio).mean(); // Better estimator has been recently found
@@ -472,10 +451,6 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
                 b_terminated = true;
             }
 
-            //if (i == 0) {
-            //    std::cout << "action: " << vec_action[i] << ", x: " << m_envs[i]->state[0] << ", theta: " << m_envs[i]->state[2] << ", reward: " << f_reward << std::endl;
-            //}
-
             // If the i-th sub-environment is done (terminated or truncated) after stepping with the 
             // i-th action action[i], envs would set its returned next_done[i] to 1, auto-reset the 
             // i-th sub-environment and fill next_obs[i] with the initial observation in the new 
@@ -507,18 +482,12 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
 
         if (envs_finished[i]) {
 
-            if (m_episode_rewards.size() >= (10 * m_num_envs)) { 
+            while (m_episode_rewards.size() >= (10 * m_num_envs)) { 
                 m_episode_rewards.pop_front();
                 m_episode_lengths.pop_front();
             }
             m_episode_rewards.push_back(envs_reward[i]);
             m_episode_lengths.push_back(envs_length[i]);
-
-            //for (auto iter = m_episode_rewards.rbegin(); iter != m_episode_rewards.rend(); ++iter) {
-            //    std::cout << "m_episode_rewards: " << * iter << std::endl;
-            //}
-
-            //std::cout << "episode of length " << envs_length[i] << " finished with reward " << envs_reward[i] << std::endl;
 
         }
 
@@ -532,19 +501,17 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
 
 
 void PPO_Discrete::train() {
-
-    try {
     
     // Start the threads in a thread pool
     m_threadPool->start();
 
     // Initialize starting variables
-    unsigned int global_step = 0;
+    unsigned int global_step = m_global_step;
     std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point update_time = std::chrono::steady_clock::now();
     torch::Tensor next_obs = torch::zeros({ m_num_envs, m_obs_size }, torch::kFloat32).to(*m_device);
     torch::Tensor next_done = torch::zeros({ m_num_envs }).to(*m_device);
-    int num_updates = int(m_total_timesteps / m_batch_size);
+    int num_updates = int((m_total_timesteps - global_step) / m_batch_size);
 
     // Setup environments
     next_obs = initEnvs();
@@ -632,7 +599,6 @@ void PPO_Discrete::train() {
                 int end = start + m_minibatch_size;
                 torch::Tensor mb_inds = b_inds.index({ torch::indexing::Slice(start, end) }); // Create a slice of the tensors to index
 
-                // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
                 // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
                 std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(
                     b_obs.index({ mb_inds }),
@@ -745,11 +711,6 @@ void PPO_Discrete::train() {
     // Stops all threads
     m_threadPool->stop();
 
-    }
-    catch (const std::exception& ex) {
-        std::cout << "Error Occured: " << ex.what() << std::endl;
-    }
-
 }
 
 
@@ -817,7 +778,7 @@ void PPO_Discrete::printPPOResults(int update, int global_step, std::chrono::mil
             "|    approx_kl            | ";
         printElement(approx_kl.item<float>(), 13);
         std::cout << "|    clip_fraction        | ";
-        printElement(getVectorMean(m_clipfracs), 13);
+        printElement(PPOUtils::getVectorMean(m_clipfracs), 13);
         std::cout << "|    clip_range           | ";
         printElement(m_clip_coef, 13);
         std::cout << "|    entropy_loss         | " << std::fixed;
@@ -840,14 +801,65 @@ void PPO_Discrete::printPPOResults(int update, int global_step, std::chrono::mil
 
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// loadPolicyFromCheckpoint() -> Returns void
+// ---------------------------------
+// Attempts to load a checkpointed model and
+// optimizer if there is one in the bakkesmod data folder
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void PPO_Discrete::loadPolicyFromCheckpoint() {
 
-float PPO_Discrete::getVectorMean(std::vector<float> vector) {
+    // Check if both dirs exist
+    std::filesystem::path modelSavePath =  "./ModelCheckpoints/";
+    std::filesystem::path optimSavePath = "./OptimizerCheckpoints/";
 
-    float runningTotal = 0.f;
-    for (int i = 0; i < vector.size(); i++) {
-        runningTotal += vector[i];
+    if (!std::filesystem::exists(modelSavePath) || !std::filesystem::exists(optimSavePath)) {
+        std::cout << "No previous model checkpoint found at " << modelSavePath << ", initializing new agent!" << std::endl;
+        return;
     }
 
-    return runningTotal / vector.size();
+    // Load agent from file (actor/critic network, logstd parameter)
+    if (std::distance(std::filesystem::directory_iterator(modelSavePath), std::filesystem::directory_iterator{}) == 0) {
+        std::cout << "No previous model checkpoint found at " << modelSavePath << ", initializing new agent!" << std::endl;
+    }
+    else {
+        std::string agentFileName;
+        std::filesystem::file_time_type agentWriteTime;
+        // directory_iterator can be iterated using a range-for loop
+        for (auto const& dir_entry : std::filesystem::directory_iterator{ modelSavePath })
+        {
+            if (std::filesystem::last_write_time(dir_entry) > agentWriteTime) {
+                agentFileName = dir_entry.path().string();
+                agentWriteTime = std::filesystem::last_write_time(dir_entry);
+            }
+        }
+        std::cout << "Loading model " << agentFileName << "..." << std::endl;
+        std::string global_step_string = PPOUtils::getLoadFromSteps(agentFileName, "PPO_Agent_");
+        // Update global step to previous 
+        m_global_step = (PPOUtils::isNumber(global_step_string)) ? stoi(global_step_string) : 0;
+        std::cout << "Continuing training from step " << m_global_step << std::endl;
+        torch::load(m_agent, agentFileName);
+    }
+
+    // Load optimizer from file
+    if (std::distance(std::filesystem::directory_iterator(optimSavePath), std::filesystem::directory_iterator{}) == 0) {
+        std::cout << "No previous optimizer checkpoint found at " << modelSavePath << ", initializing new optimizer!" << std::endl;
+    }
+    else {
+        std::string optimFileName;
+        std::filesystem::file_time_type optimWriteTime;
+        // directory_iterator can be iterated using a range-for loop
+        for (auto const& dir_entry : std::filesystem::directory_iterator{ optimSavePath })
+        {
+            if (std::filesystem::last_write_time(dir_entry) > optimWriteTime) {
+                optimFileName = dir_entry.path().string();
+                optimWriteTime = std::filesystem::last_write_time(dir_entry);
+            }
+        }
+        std::cout << "Loading optimizer " << optimFileName << "..." << std::endl;
+        torch::load(*m_optimizer, optimFileName);
+    }
 
 }
+
+

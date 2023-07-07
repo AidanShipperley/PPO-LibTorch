@@ -18,7 +18,7 @@
  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Agent::Agent(int obsSize, int actionSize, std::shared_ptr<torch::Device> device) {
 
-    m_actionSpace = { 2 };//{ 3, 3, 3, 3, 3, 2, 2, 2 };
+    m_actionSpace = { actionSize };//{ 3, 3, 3, 3, 3, 2, 2, 2 };
     m_actionSpaceSum = std::accumulate(m_actionSpace.begin(), m_actionSpace.end(), 0);
 
     // We MUST initialize all linear layers here FIRST if we want consistent weight 

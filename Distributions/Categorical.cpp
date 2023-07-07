@@ -30,7 +30,7 @@ Categorical::Categorical(const torch::Tensor& logits, std::shared_ptr<torch::Dev
     // This is just how logits are initialized, so I'm keeping everything identical
     // (https://pytorch.org/docs/stable/_modules/torch/distributions/categorical.html#Categorical)
     // Normalize
-    m_logits = logits - logits.logsumexp(-1, true);
+    m_logits = logits - logits.logsumexp(/*dim=*/-1, /*keepdim=*/true);
     m_probs = logits_to_probs(logits);
     m_num_events = m_probs.sizes().back();
 
