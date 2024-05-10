@@ -59,11 +59,19 @@ jobs:
       run: |
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" >> $GITHUB_ENV
 
-    - name: Set CUDA Toolkit Path (Extra Linux Step)
+    - name: Set CUDA Toolkit Path (Linux)
       run: |
+        ls ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
         echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin" >> $GITHUB_PATH
         echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib64" >> $GITHUB_PATH
       if: runner.os != 'Windows'
+
+    - name: Set CUDA Toolkit Path (Windows)
+      run: |
+        ls ${{ steps.cuda-toolkit.outputs.CUDA_PATH }}
+        echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}\\bin" >> $GITHUB_PATH
+        echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}\\lib64" >> $GITHUB_PATH
+      if: runner.os == 'Windows'
 
     - name: Download and Install LibTorch (Linux)
       run: |
@@ -85,6 +93,7 @@ jobs:
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: |
+        ls ${{ env.LibTorch_ROOT }}
         mkdir build
         cd build
         cmake -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }} ..
