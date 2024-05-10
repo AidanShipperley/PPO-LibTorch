@@ -28,9 +28,9 @@ jobs:
         build_type: [Release]
         include:
           - os: windows-2019
-            libtorch_url: https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.3.0%2Bcu118.zip
+            libtorch_url: https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.2.2%2Bcu118.zip
           - os: ubuntu-20.04
-            libtorch_url: https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.3.0%2Bcu121.zip
+            libtorch_url: https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.2.2%2Bcu121.zip
     steps:
     - uses: actions/checkout@v4
 
@@ -58,20 +58,28 @@ jobs:
     - name: Set CUDA Toolkit Path
       run: |
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" >> $GITHUB_ENV
-        if [[ ${{ runner.os }} == 'Linux' ]]; then
-          echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin" >> $GITHUB_PATH
-          echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib64" >> $GITHUB_PATH
-        fi
 
-    - name: Download and Install LibTorch
+    - name: Set CUDA Toolkit Path (Extra Linux Step)
+      run: |
+        echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin" >> $GITHUB_PATH
+        echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib64" >> $GITHUB_PATH
+      if: runner.os != 'Windows'
+
+    - name: Download and Install LibTorch (Linux)
       run: |
         curl -L ${{ matrix.libtorch_url }} --output libtorch.zip
-        if [[ ${{ runner.os }} == 'Linux' ]]; then
-          unzip libtorch.zip -d libtorch
-        else
-          Expand-Archive -Path libtorch.zip -DestinationPath libtorch
+        unzip libtorch.zip -d libtorch
         echo "LibTorch_ROOT=$PWD/libtorch" >> $GITHUB_ENV
         echo "$PWD/libtorch/bin" >> $GITHUB_PATH
+      if: runner.os != 'Windows'
+      
+    - name: Download and Install LibTorch (Windows)
+      run: |
+        Start-BitsTransfer -Source ${{ matrix.libtorch_url }} -Destination libtorch.zip
+        Expand-Archive -Path libtorch.zip -DestinationPath libtorch
+        echo "LibTorch_ROOT=$PWD/libtorch" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
+        $env:PATH = "$PWD/libtorch/bin;" + $env:PATH
+      if: runner.os == 'Windows'
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
