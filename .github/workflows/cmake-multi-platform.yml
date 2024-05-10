@@ -46,6 +46,8 @@ jobs:
       id: cuda-toolkit
       with:
         cuda: '12.1.1'
+        method: 'network'
+        sub-packages: '["nvcc"]'
 
     - name: Verify CUDA Toolkit Installation
       run: |
