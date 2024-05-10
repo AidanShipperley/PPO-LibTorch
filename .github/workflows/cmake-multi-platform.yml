@@ -27,9 +27,9 @@ jobs:
         os: [ubuntu-20.04, windows-2019]
         build_type: [Release]
         include:
-          - os: windows-2022
+          - os: windows-2019
             libtorch_url: https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.3.0%2Bcu118.zip
-          - os: ubuntu-22.04
+          - os: ubuntu-20.04
             libtorch_url: https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.3.0%2Bcu121.zip
     steps:
     - uses: actions/checkout@v4
