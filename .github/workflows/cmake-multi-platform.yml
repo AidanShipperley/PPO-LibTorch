@@ -28,21 +28,9 @@ jobs:
         build_type: [Release]
         include:
           - os: windows-2022
-            cuda_install: |
-              choco install cuda --version=11.8.0.52206
             libtorch_url: https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.3.0%2Bcu118.zip
-            cuda_root: "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.8"
           - os: ubuntu-22.04
-            cuda_install: |
-              wget -nv https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
-              sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
-              wget -nv https://developer.download.nvidia.com/compute/cuda/12.1.0/local_installers/cuda-repo-ubuntu2204-12-1-local_12.1.0-530.30.02-1_amd64.deb
-              sudo dpkg -i cuda-repo-ubuntu2204-12-1-local_12.1.0-530.30.02-1_amd64.deb
-              sudo cp /var/cuda-repo-ubuntu2204-12-1-local/cuda-*-keyring.gpg /usr/share/keyrings/
-              sudo apt-get update
-              sudo apt-get -y install cuda
             libtorch_url: https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.3.0%2Bcu121.zip
-            cuda_root: /usr/local/cuda
     steps:
     - uses: actions/checkout@v4
 
@@ -54,14 +42,23 @@ jobs:
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
     - name: Install CUDA Toolkit
-      run: ${{ matrix.cuda_install }}
+      uses: Jimver/cuda-toolkit@v0.2.15
+      id: cuda-toolkit
+      with:
+        cuda: '12.1.1'
+
+    - name: Verify CUDA Toolkit Installation
+      run: |
+        echo "Installed cuda version is: ${{steps.cuda-toolkit.outputs.cuda}}"
+        echo "Cuda install location: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}"
+        nvcc -V
 
     - name: Set CUDA Toolkit Path
       run: |
-        echo "CUDAToolkit_ROOT=${{ matrix.cuda_root }}" >> $GITHUB_ENV
+        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" >> $GITHUB_ENV
         if [[ ${{ runner.os }} == 'Linux' ]]; then
-          echo "${{ matrix.cuda_root }}/bin" >> $GITHUB_PATH
-          echo "${{ matrix.cuda_root }}/lib64" >> $GITHUB_PATH
+          echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/bin" >> $GITHUB_PATH
+          echo "${{ steps.cuda-toolkit.outputs.CUDA_PATH }}/lib64" >> $GITHUB_PATH
         fi
 
     - name: Download and Install LibTorch
