@@ -48,7 +48,6 @@ jobs:
         cuda: '12.1.1'
         method: 'network'
         sub-packages: '["nvcc", "nvtx", "visual_studio_integration"]'
-        non-cuda-sub-packages: '["libtbb-dev"]'
       if: runner.os == 'Windows'
 
     - name: Install CUDA Toolkit (Linux)
@@ -58,6 +57,7 @@ jobs:
         cuda: '12.1.1'
         method: 'network'
         sub-packages: '["nvcc", "nvtx"]'
+        non-cuda-sub-packages: '["libtbb-dev"]'
       if: runner.os != 'Windows'
 
     - name: Verify CUDA Toolkit Installation (Linux)
