@@ -41,13 +41,23 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Install CUDA Toolkit
+    - name: Install CUDA Toolkit (Windows)
       uses: Jimver/cuda-toolkit@v0.2.15
-      id: cuda-toolkit
+      id: cuda-toolkit-windows
       with:
         cuda: '12.1.1'
         method: 'network'
         sub-packages: '["nvcc", "nvtx", "visual_studio_integration"]'
+      if: runner.os == 'Windows'
+
+    - name: Install CUDA Toolkit (Linux)
+      uses: Jimver/cuda-toolkit@v0.2.15
+      id: cuda-toolkit-linux
+      with:
+        cuda: '12.1.1'
+        method: 'network'
+        sub-packages: '["nvcc", "nvtx"]'
+      if: runner.os != 'Windows'
 
     - name: Verify CUDA Toolkit Installation
       run: |
@@ -55,9 +65,15 @@ jobs:
         echo "Cuda install location: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}"
         nvcc -V
 
-    - name: Set CUDA Toolkit Path
+    - name: Set CUDA Toolkit Path (Linux)
       run: |
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" >> $GITHUB_ENV
+      if: runner.os != 'Windows'
+
+    - name: Set CUDA Toolkit Path (Windows)
+      run: |
+        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit.outputs.CUDA_PATH }}" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
+      if: runner.os == 'Windows'
 
     - name: Set CUDA Toolkit Path (Linux)
       run: |
