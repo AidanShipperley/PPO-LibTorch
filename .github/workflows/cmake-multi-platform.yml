@@ -57,7 +57,6 @@ jobs:
         cuda: '12.1.1'
         method: 'network'
         sub-packages: '["nvcc", "nvtx"]'
-        non-cuda-sub-packages: '["libtbb-dev"]'
       if: runner.os != 'Windows'
 
     - name: Verify CUDA Toolkit Installation (Linux)
@@ -102,6 +101,8 @@ jobs:
       run: |
         curl -L ${{ matrix.libtorch_url }} --output libtorch.zip
         unzip libtorch.zip -d libtorch
+        sudo apt update
+        sudo apt install libtbb-dev
         echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
         echo "$PWD/libtorch/libtorch/bin" >> $GITHUB_PATH
       if: runner.os != 'Windows'
