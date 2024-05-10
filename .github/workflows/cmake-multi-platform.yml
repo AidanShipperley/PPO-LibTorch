@@ -87,7 +87,7 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }} --config ${{ matrix.BUILD_TYPE }} -S ..
+        cmake -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }} ..
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
