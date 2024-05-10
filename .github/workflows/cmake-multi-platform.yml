@@ -47,7 +47,7 @@ jobs:
       with:
         cuda: '12.1.1'
         method: 'network'
-        sub-packages: '["nvcc", "nvtx"]'
+        sub-packages: '["nvcc", "nvtx", "visual_studio_integration"]'
 
     - name: Verify CUDA Toolkit Installation
       run: |
@@ -100,4 +100,7 @@ jobs:
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build . --config ${{ matrix.BUILD_TYPE }}
+      run: |
+        pwd
+        ls
+        cmake --build . --config ${{ matrix.BUILD_TYPE }}
