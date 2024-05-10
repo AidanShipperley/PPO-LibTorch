@@ -3,6 +3,8 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
+include(CheckLanguage)
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -11,6 +13,14 @@ endif()
 
 # Attempt to enable cudnn
 project ("PPO" LANGUAGES CUDA CXX)
+
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+endif()
+
+set_target_properties("PPO" PROPERTIES CUDA_ARCHITECTURES "35;50;72")
 
 # Allow users to specify the path to LibTorch and enforce providing a path.
 set(LIBTORCH_PATH "./../libtorch" CACHE PATH "Path to LibTorch")
