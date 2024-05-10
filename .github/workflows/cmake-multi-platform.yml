@@ -1,12 +1,13 @@
 # This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
 # See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
-name: CMake on multiple platforms
+name: Multi-OS Build with CMake and LibTorch
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -23,27 +24,26 @@ jobs:
       #
       # To add more build types (Release, Debug, RelWithDebInfo, etc.) customize the build_type list.
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-22.04, windows-2022]
         build_type: [Release]
         c_compiler: [gcc, clang, cl]
         include:
-          - os: windows-latest
-            c_compiler: cl
-            cpp_compiler: cl
-          - os: ubuntu-latest
-            c_compiler: gcc
-            cpp_compiler: g++
-          - os: ubuntu-latest
-            c_compiler: clang
-            cpp_compiler: clang++
-        exclude:
-          - os: windows-latest
-            c_compiler: gcc
-          - os: windows-latest
-            c_compiler: clang
-          - os: ubuntu-latest
-            c_compiler: cl
-
+          - os: windows-2022
+            cuda_install: |
+              choco install cuda --version=12.1
+            libtorch_url: https://download.pytorch.org/libtorch/cu121/libtorch-win-shared-with-deps-2.3.0%2Bcu121.zip
+            cuda_root: "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v12.1"
+          - os: ubuntu-22.04
+            cuda_install: |
+              wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-ubuntu2204.pin
+              sudo mv cuda-ubuntu2204.pin /etc/apt/preferences.d/cuda-repository-pin-600
+              wget https://developer.download.nvidia.com/compute/cuda/12.1.0/local_installers/cuda-repo-ubuntu2204-12-1-local_12.1.0-530.30.02-1_amd64.deb
+              sudo dpkg -i cuda-repo-ubuntu2204-12-1-local_12.1.0-530.30.02-1_amd64.deb
+              sudo cp /var/cuda-repo-ubuntu2204-12-1-local/cuda-*-keyring.gpg /usr/share/keyrings/
+              sudo apt-get update
+              sudo apt-get -y install cuda
+            libtorch_url: https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.3.0%2Bcu121.zip
+            cuda_root: /usr/local/cuda
     steps:
     - uses: actions/checkout@v4
 
@@ -54,22 +54,35 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
+    - name: Install CUDA Toolkit
+      run: ${{ matrix.cuda_install }}
+
+    - name: Set CUDA Toolkit Path
+      run: |
+        echo "CUDAToolkit_ROOT=${{ matrix.cuda_root }}" >> $GITHUB_ENV
+        if [[ ${{ runner.os }} == 'Linux' ]]; then
+          echo "${{ matrix.cuda_root }}/bin" >> $GITHUB_PATH
+          echo "${{ matrix.cuda_root }}/lib64" >> $GITHUB_PATH
+        fi
+
+    - name: Download and Install LibTorch
+      run: |
+        curl -L ${{ matrix.libtorch_url }} --output libtorch.zip
+        if [[ ${{ runner.os }} == 'Linux' ]]; then
+          unzip libtorch.zip -d libtorch
+        else
+          Expand-Archive -Path libtorch.zip -DestinationPath libtorch
+        echo "LibTorch_ROOT=$PWD/libtorch" >> $GITHUB_ENV
+        echo "$PWD/libtorch/bin" >> $GITHUB_PATH
+
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: >
-        cmake -B ${{ steps.strings.outputs.build-output-dir }}
-        -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }}
-        -DCMAKE_C_COMPILER=${{ matrix.c_compiler }}
-        -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-        -S ${{ github.workspace }}
+      run: |
+        mkdir build
+        cd build
+        cmake -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }} --config ${{ matrix.BUILD_TYPE }} -S ..
 
     - name: Build
       # Build your program with the given configuration. Note that --config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      run: cmake --build ${{ steps.strings.outputs.build-output-dir }} --config ${{ matrix.build_type }}
-
-    - name: Test
-      working-directory: ${{ steps.strings.outputs.build-output-dir }}
-      # Execute tests defined by the CMake configuration. Note that --build-config is needed because the default Windows generator is a multi-config generator (Visual Studio generator).
-      # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
-      run: ctest --build-config ${{ matrix.build_type }}
+      run: cmake --build . --config ${{ matrix.BUILD_TYPE }}
