@@ -77,8 +77,8 @@ jobs:
       run: |
         curl -L ${{ matrix.libtorch_url }} --output libtorch.zip
         unzip libtorch.zip -d libtorch
-        echo "LibTorch_ROOT=$PWD/libtorch" >> $GITHUB_ENV
-        echo "$PWD/libtorch/bin" >> $GITHUB_PATH
+        echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
+        echo "$PWD/libtorch/libtorch/bin" >> $GITHUB_PATH
       if: runner.os != 'Windows'
       
     - name: Download and Install LibTorch (Windows)
