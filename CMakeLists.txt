@@ -20,8 +20,6 @@ if(CMAKE_CUDA_COMPILER)
     include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
 endif()
 
-set_target_properties("PPO" PROPERTIES CUDA_ARCHITECTURES "35;50;72")
-
 # Allow users to specify the path to LibTorch and enforce providing a path.
 set(LIBTORCH_PATH "./../libtorch" CACHE PATH "Path to LibTorch")
 if("${LIBTORCH_PATH}" STREQUAL "")
@@ -55,4 +53,4 @@ if (MSVC)
                      $<TARGET_FILE_DIR:PPO>)
 endif (MSVC)
 
-# TODO: Add tests and install targets if needed.
+set_target_properties(PPO PROPERTIES CUDA_ARCHITECTURES "35;50;72")
