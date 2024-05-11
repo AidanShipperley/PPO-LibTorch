@@ -73,28 +73,20 @@ jobs:
         nvcc -V
       if: runner.os == 'Windows'
 
-    - name: Set CUDA Toolkit Path (Linux)
-      run: |
-        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}" >> $GITHUB_ENV
-      if: runner.os != 'Windows'
-
-    - name: Set CUDA Toolkit Path (Windows)
-      run: |
-        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
-      if: runner.os == 'Windows'
-
-    - name: Set CUDA Toolkit Path (Linux)
+    - name: Add CUDA Toolkit Paths (Linux)
       run: |
         ls ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}
         echo "${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/bin" >> $GITHUB_PATH
         echo "${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64" >> $GITHUB_PATH
+        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}" >> $GITHUB_ENV
       if: runner.os != 'Windows'
 
-    - name: Set CUDA Toolkit Path (Windows)
+    - name: Add CUDA Toolkit Paths (Windows)
       run: |
         ls "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}"
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" >> $GITHUB_PATH
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" >> $GITHUB_PATH
+        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
       if: runner.os == 'Windows'
 
     - name: Download and Install LibTorch (Linux)
@@ -132,4 +124,5 @@ jobs:
         cd build
         pwd
         ls
+        find /usr/local/cuda -name "libnvrtc.so*"
         cmake --build . --config ${{ matrix.BUILD_TYPE }}
