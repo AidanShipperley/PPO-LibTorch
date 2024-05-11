@@ -44,9 +44,11 @@ find_package(Torch REQUIRED)
 # Find required TBB components
 set (TBB_INCLUDE_DIRS "/usr/include;/usr/include/tbb")
 set (TBB_LIBRARIES "/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
-include_directories(${TORCH_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
+include_directories(${TORCH_INCLUDE_DIRS})
+include_directories(${TBB_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
+message(STATUS "TORCH_CXX_FLAGS: ${TORCH_CXX_FLAGS}")
 message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
 message(STATUS "TBB_LIBRARIES: ${TBB_LIBRARIES}")
 message(STATUS "TORCH_CUDA_LIBRARIES: ${TORCH_CUDA_LIBRARIES}")
@@ -56,10 +58,11 @@ message(STATUS "CUDA_LIBRARIES: ${CUDA_LIBRARIES}")
 
 # Add source to this project's executable.
 add_executable (PPO "PPO_Discrete.cpp" "PPO_Discrete.h" "PPO_MultiDiscrete.cpp" "PPO_MultiDiscrete.h" "driver.cpp" "ThreadPool.h" "ThreadPool.cpp" "Agent.h" "Agent.cpp" "Distributions/CategoricalMasked.h" "Distributions/CategoricalMasked.cpp" "Environments/MountainCar.h" "Environments/MountainCar.cpp" "Distributions/Categorical.h" "Distributions/Categorical.cpp" "Environments/CartPole.h" "Environments/CartPole.cpp" "Utils.h" "Utils.cpp")
-target_link_libraries(PPO "${TORCH_LIBRARIES}" "${TBB_LIBRARIES}")
+target_link_libraries(PPO "${TORCH_LIBRARIES}")
+target_link_libraries(PPO "${TBB_LIBRARIES}")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET PPO PROPERTY CXX_STANDARD 20)
+  set_property(TARGET PPO PROPERTY CXX_STANDARD 17)
 endif()
 
 # The following code block is suggested to be used on Windows.
