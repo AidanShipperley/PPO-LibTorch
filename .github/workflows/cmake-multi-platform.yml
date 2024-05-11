@@ -82,6 +82,8 @@ jobs:
         echo "${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64" >> $GITHUB_PATH
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}" >> $GITHUB_ENV
         ls ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64
+        sudo ln -s ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64/libnvrtc.so.12.1.105 ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64/libnvrtc.so
+        ls ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64
       if: runner.os != 'Windows'
 
     - name: Add CUDA Toolkit Paths (Windows)
