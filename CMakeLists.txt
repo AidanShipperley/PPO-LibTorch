@@ -47,7 +47,7 @@ set (TBB_LIBRARIES "tbb;/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linu
 
 include_directories(${TORCH_INCLUDE_DIRS})
 include_directories(${TBB_INCLUDE_DIRS})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -ltbb")
 
 link_directories("/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
 
