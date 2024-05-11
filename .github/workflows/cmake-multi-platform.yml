@@ -47,7 +47,7 @@ jobs:
       with:
         cuda: '12.1.1'
         method: 'network'
-        sub-packages: '["nvcc", "nvtx", "visual_studio_integration"]'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart", "visual_studio_integration"]'
       if: runner.os == 'Windows'
 
     - name: Install CUDA Toolkit (Linux)
@@ -56,7 +56,7 @@ jobs:
       with:
         cuda: '12.1.1'
         method: 'network'
-        sub-packages: '["nvcc", "nvtx"]'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart"]'
       if: runner.os != 'Windows'
 
     - name: Verify CUDA Toolkit Installation (Linux)
