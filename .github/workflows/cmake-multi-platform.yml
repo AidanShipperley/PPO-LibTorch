@@ -99,7 +99,7 @@ jobs:
         curl -L ${{ matrix.libtorch_url }} --output libtorch.zip
         unzip -q libtorch.zip -d libtorch
         sudo apt update
-        sudo apt install libtbb-dev
+        sudo apt install libtbb-dev ninja-build
         echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
         echo "$PWD/libtorch/libtorch/bin" >> $GITHUB_PATH
       if: runner.os != 'Windows'
