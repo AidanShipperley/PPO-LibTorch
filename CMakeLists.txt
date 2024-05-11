@@ -22,12 +22,13 @@ find_package(CUDAToolkit REQUIRED)
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
+    message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
     include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
-    message(STATUS "CUDA_TOOLKIT_ROOT_DIR: ${CUDA_TOOLKIT_ROOT_DIR}")
+    message(STATUS "CUDAToolkit_ROOT: ${CUDAToolkit_ROOT}")
 
     find_library(CUDA_nvrtc_LIBRARY 
         NAMES nvrtc 
-        HINTS ${CUDA_TOOLKIT_ROOT_DIR}
+        HINTS ${CUDAToolkit_ROOT}
         PATH_SUFFIXES /lib64 /lib/x64 /targets/x86_64-linux/lib /targets/aarch64-linux/lib)
 
     message(STATUS "CUDA_nvrtc_LIBRARY: ${CUDA_nvrtc_LIBRARY}")
