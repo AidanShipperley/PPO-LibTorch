@@ -18,6 +18,11 @@ check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+    find_library(CUDA_nvrtc_LIBRARY 
+        NAMES nvrtc 
+        HINTS ${CUDA_TOOLKIT_ROOT_DIR}
+        PATH_SUFFIXES /lib/x64 /targets/x86_64-linux/lib /targets/aarch64-linux/lib)
+        PATH_SUFFIXES /lib64 /lib/x64 /targets/x86_64-linux/lib /targets/aarch64-linux/lib)
 endif()
 
 # Allow users to specify the path to LibTorch and enforce providing a path.
