@@ -41,15 +41,6 @@ jobs:
       run: |
         echo "build-output-dir=${{ github.workspace }}/build" >> "$GITHUB_OUTPUT"
 
-    - name: Install CUDA Toolkit (Windows)
-      uses: Jimver/cuda-toolkit@v0.2.15
-      id: cuda-toolkit-windows
-      with:
-        cuda: '12.1.1'
-        method: 'network'
-        sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart", "visual_studio_integration"]'
-      if: runner.os == 'Windows'
-
     - name: Install CUDA Toolkit (Linux)
       uses: Jimver/cuda-toolkit@v0.2.15
       id: cuda-toolkit-linux
@@ -59,11 +50,21 @@ jobs:
         sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart"]'
       if: runner.os != 'Windows'
 
+    - name: Install CUDA Toolkit (Windows)
+      uses: Jimver/cuda-toolkit@v0.2.15
+      id: cuda-toolkit-windows
+      with:
+        cuda: '12.1.1'
+        method: 'network'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart", "visual_studio_integration"]'
+      if: runner.os == 'Windows'
+
     - name: Verify CUDA Toolkit Installation (Linux)
       run: |
         echo "Installed cuda version is: ${{steps.cuda-toolkit-linux.outputs.cuda}}"
         echo "Cuda install location: ${{steps.cuda-toolkit-linux.outputs.CUDA_PATH}}"
         nvcc -V
+        cmake --version
       if: runner.os != 'Windows'
         
     - name: Verify CUDA Toolkit Installation (Windows)
@@ -71,6 +72,7 @@ jobs:
         echo "Installed cuda version is: ${{steps.cuda-toolkit-windows.outputs.cuda}}"
         echo "Cuda install location: ${{steps.cuda-toolkit-windows.outputs.CUDA_PATH}}"
         nvcc -V
+        cmake --version
       if: runner.os == 'Windows'
 
     - name: Add CUDA Toolkit Paths (Linux)
@@ -92,7 +94,7 @@ jobs:
     - name: Download and Install LibTorch (Linux)
       run: |
         curl -L ${{ matrix.libtorch_url }} --output libtorch.zip
-        unzip libtorch.zip -d libtorch
+        unzip -q libtorch.zip -d libtorch
         sudo apt update
         sudo apt install libtbb-dev
         echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
@@ -103,8 +105,8 @@ jobs:
       run: |
         Start-BitsTransfer -Source ${{ matrix.libtorch_url }} -Destination libtorch.zip
         Expand-Archive -Path libtorch.zip -DestinationPath libtorch
-        echo "LibTorch_ROOT=$PWD/libtorch/libtorch" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
-        $env:PATH = "$PWD/libtorch/libtorch/bin;" + $env:PATH
+        echo "LibTorch_ROOT=$PWD\libtorch\libtorch" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
+        $env:PATH = "$PWD\libtorch\libtorch\bin;" + $env:PATH
       if: runner.os == 'Windows'
 
     - name: Configure CMake
