@@ -42,7 +42,8 @@ endif()
 # Find required LibTorch components
 find_package(Torch REQUIRED)
 # Find required TBB components
-find_package(TBB REQUIRED)
+set (TBB_INCLUDE_DIRS "/usr/include;/usr/include/tbb")
+set (TBB_LIBRARIES "/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
 include_directories(${TORCH_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
