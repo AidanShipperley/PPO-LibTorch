@@ -26,10 +26,7 @@ if(CMAKE_CUDA_COMPILER)
     include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
     message(STATUS "CUDAToolkit_ROOT: ${CUDAToolkit_ROOT}")
 
-    find_library(CUDA_nvrtc_LIBRARY 
-        NAMES nvrtc 
-        HINTS ${CUDAToolkit_ROOT}
-        PATH_SUFFIXES /lib64 /lib/x64 /targets/x86_64-linux/lib /targets/aarch64-linux/lib)
+    find_library(CUDA_nvrtc_LIBRARY nvrtc ${CUDAToolkit_ROOT})
 
     message(STATUS "CUDA_nvrtc_LIBRARY: ${CUDA_nvrtc_LIBRARY}")
 endif()
