@@ -14,14 +14,23 @@ endif()
 # Attempt to enable cudnn
 project ("PPO" LANGUAGES CUDA CXX)
 
+# This script locates the NVIDIA CUDA toolkit and the associated libraries
+# Docs: https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html#findcudatoolkit
+# Issue Addresses: https://github.com/pytorch/pytorch/pull/116926#issuecomment-2034142022
+find_package(CUDAToolkit REQUIRED)
+
 check_language(CUDA)
 if(CMAKE_CUDA_COMPILER)
     enable_language(CUDA)
     include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+    message(STATUS "CUDA_TOOLKIT_ROOT_DIR: ${CUDA_TOOLKIT_ROOT_DIR}")
+
     find_library(CUDA_nvrtc_LIBRARY 
         NAMES nvrtc 
         HINTS ${CUDA_TOOLKIT_ROOT_DIR}
         PATH_SUFFIXES /lib64 /lib/x64 /targets/x86_64-linux/lib /targets/aarch64-linux/lib)
+
+    message(STATUS "CUDA_nvrtc_LIBRARY: ${CUDA_nvrtc_LIBRARY}")
 endif()
 
 # Allow users to specify the path to LibTorch and enforce providing a path.
