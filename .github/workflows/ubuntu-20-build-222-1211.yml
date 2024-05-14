@@ -54,7 +54,7 @@ jobs:
         curl -L ${{ env.LIBTORCH_URL }} --output libtorch.zip
         unzip -q libtorch.zip -d libtorch
         sudo apt update
-        sudo apt install ninja-build
+        sudo apt install libtbb-dev ninja-build
         echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
         echo "$PWD/libtorch/libtorch/bin" >> $GITHUB_PATH
 
