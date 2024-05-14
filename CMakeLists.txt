@@ -42,14 +42,14 @@ endif()
 # Find required LibTorch components
 find_package(Torch REQUIRED)
 # Find required TBB components
-set (TBB_INCLUDE_DIRS "/usr/include;/usr/include/tbb")
-set (TBB_LIBRARIES "tbb;/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
+# temp set (TBB_INCLUDE_DIRS "/usr/include;/usr/include/tbb")
+# temp set (TBB_LIBRARIES "tbb;/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
 
 include_directories(${TORCH_INCLUDE_DIRS})
-include_directories(${TBB_INCLUDE_DIRS})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS} -ltbb")
+# temp include_directories(${TBB_INCLUDE_DIRS})
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 
-link_directories("/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
+# temp link_directories("/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
 
 message(STATUS "TORCH_CXX_FLAGS: ${TORCH_CXX_FLAGS}")
 message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
@@ -62,7 +62,7 @@ message(STATUS "CUDA_LIBRARIES: ${CUDA_LIBRARIES}")
 # Add source to this project's executable.
 add_executable (PPO "PPO_Discrete.cpp" "PPO_Discrete.h" "PPO_MultiDiscrete.cpp" "PPO_MultiDiscrete.h" "driver.cpp" "ThreadPool.h" "ThreadPool.cpp" "Agent.h" "Agent.cpp" "Distributions/CategoricalMasked.h" "Distributions/CategoricalMasked.cpp" "Environments/MountainCar.h" "Environments/MountainCar.cpp" "Distributions/Categorical.h" "Distributions/Categorical.cpp" "Environments/CartPole.h" "Environments/CartPole.cpp" "Utils.h" "Utils.cpp")
 target_link_libraries(PPO "${TORCH_LIBRARIES}")
-target_link_libraries(PPO "tbb")
+# temp target_link_libraries(PPO "tbb")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET PPO PROPERTY CXX_STANDARD 17)
