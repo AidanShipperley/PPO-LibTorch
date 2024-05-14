@@ -424,8 +424,8 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
     torch::Tensor reward = torch::zeros({ m_num_envs, 1 }, torch::TensorOptions(*m_device).dtype(torch::kFloat32));
     torch::Tensor done = torch::zeros({ m_num_envs, 1 }, torch::TensorOptions(*m_device).dtype(torch::kInt32));
 
-    // Convert action tensor to long long vector
-    std::vector<long long> vec_action(action.data_ptr<long long>(), action.data_ptr<long long>() + action.numel());
+    // Convert action tensor to long long (int64_t) vector
+    std::vector<int64_t> vec_action(action.data_ptr<int64_t>(), action.data_ptr<int64_t>() + action.numel());
 
     // Create vector to log done and rewards
     std::vector<bool> envs_finished(m_num_envs, false);
