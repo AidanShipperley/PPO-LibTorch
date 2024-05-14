@@ -137,6 +137,7 @@ jobs:
         pwd
         ls
         cmake --build . --config ${{ matrix.BUILD_TYPE }}
+      if: runner.os != 'Windows'
 
     - name: Build (Windows)
       run: |
@@ -146,3 +147,4 @@ jobs:
         pwd
         ls
         cmake --build . --config ${{ matrix.BUILD_TYPE }}
+      if: runner.os == 'Windows'
