@@ -55,7 +55,11 @@ jobs:
 
     - name: Configure CMake
       run: |
-        ls ${{ env.LibTorch_ROOT }}
+        pwd
+        ls
+        cd "D:\a\PPO-LibTorch\PPO-LibTorch\"
+        pwd
+        ls
         cmake --preset x64-release -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0" -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }}
 
     - name: Build
