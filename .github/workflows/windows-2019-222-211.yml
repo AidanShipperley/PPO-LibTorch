@@ -13,6 +13,7 @@ env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LIBTORCH_URL: https://download.pytorch.org/libtorch/cu121/libtorch-win-shared-with-deps-2.2.2%2Bcu121.zip
+  NINJA_URL: https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
 
 jobs:
   build:
@@ -45,6 +46,14 @@ jobs:
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" >> $GITHUB_PATH
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" >> $GITHUB_PATH
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
+
+    - name: Download and Install Ninja
+      run: |
+        Start-BitsTransfer -Source ${{ env.NINJA_URL }} -Destination "ninja-win.zip"
+        Expand-Archive -Path "ninja-win.zip" -DestinationPath ninja
+        ls ".\"
+        ls ".\ninja\"
+        $env:PATH = "$PWD\ninja;" + $env:PATH
 
     - name: Download and Install LibTorch
       run: |
