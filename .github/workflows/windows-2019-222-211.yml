@@ -25,6 +25,25 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Download and Install Ninja
+      run: |
+        Start-BitsTransfer -Source ${{ env.NINJA_URL }} -Destination "ninja-win.zip"
+        Expand-Archive -Path "ninja-win.zip" -DestinationPath ninja
+        ls ".\"
+        ls ".\ninja\"
+        echo "---"
+        echo ";$PWD\ninja"
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+        [Environment]::SetEnvironmentVariable("Path", $currentPath + ";$PWD\ninja", [System.EnvironmentVariableTarget]::Machine)
+        echo "---"
+        [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+        echo "---"
+        ninja.exe --version
+        echo "---"
+        echo "---"
+        echo "---"
+        ninja --version
+
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.15
       id: cuda-toolkit-windows
@@ -46,18 +65,6 @@ jobs:
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" >> $GITHUB_PATH
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" >> $GITHUB_PATH
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
-
-    - name: Download and Install Ninja
-      run: |
-        Start-BitsTransfer -Source ${{ env.NINJA_URL }} -Destination "ninja-win.zip"
-        Expand-Archive -Path "ninja-win.zip" -DestinationPath ninja
-        ls ".\"
-        ls ".\ninja\"
-        echo "---"
-        echo "$PWD\ninja;"
-        $env:PATH = "$PWD\ninja;" + $env:PATH
-        echo "---"
-        echo $env:PATH
 
     - name: Download and Install LibTorch
       run: |
