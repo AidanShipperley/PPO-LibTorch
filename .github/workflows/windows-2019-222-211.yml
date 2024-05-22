@@ -33,10 +33,11 @@ jobs:
         ls ".\ninja\"
         echo "---"
         echo ";$PWD\ninja"
-        $currentPath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-        setx PATH "$currentPath;$PWD\ninja" /M
+        $env:PATH = "$PWD\ninja;" + $env:PATH
         echo "---"
         [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
+        echo "---"
+        echo "$env:PATH"
         echo "---"
         ninja.exe --version
         echo "---"
