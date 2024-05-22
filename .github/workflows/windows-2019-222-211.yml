@@ -68,8 +68,8 @@ jobs:
     - name: Add CUDA Toolkit Paths
       run: |
         ls "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}"
-        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" >> $GITHUB_PATH
-        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" >> $GITHUB_PATH
+        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
     - name: Download and Install LibTorch
@@ -77,7 +77,7 @@ jobs:
         Start-BitsTransfer -Source ${{ env.LIBTORCH_URL }} -Destination libtorch.zip
         Expand-Archive -Path libtorch.zip -DestinationPath libtorch
         echo "LibTorch_ROOT=$PWD\libtorch\libtorch" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-        echo "$PWD\libtorch\libtorch\bin" >> $GITHUB_PATH
+        echo "$PWD\libtorch\libtorch\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: Configure CMake
       run: |
