@@ -33,8 +33,7 @@ jobs:
         ls ".\ninja\"
         echo "---"
         echo "$PWD\ninja"
-        echo "$GITHUB_WORKSPACE\ninja"
-        echo "$GITHUB_WORKSPACE\ninja" >> $GITHUB_PATH
+        echo "$PWD\ninja" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "---"
         [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
         echo "---"
@@ -64,16 +63,16 @@ jobs:
     - name: Add CUDA Toolkit Paths
       run: |
         ls "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}"
-        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" >> $GITHUB_PATH
-        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" >> $GITHUB_PATH
-        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
+        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
     - name: Download and Install LibTorch
       run: |
         Start-BitsTransfer -Source ${{ env.LIBTORCH_URL }} -Destination libtorch.zip
         Expand-Archive -Path libtorch.zip -DestinationPath libtorch
-        echo "LibTorch_ROOT=$PWD\libtorch\libtorch" | Out-File -Append -Encoding ASCII $env:GITHUB_ENV
-        echo "$GITHUB_WORKSPACE\libtorch\libtorch\bin" >> $GITHUB_PATH
+        echo "LibTorch_ROOT=$PWD\libtorch\libtorch" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+        echo "$PWD\libtorch\libtorch\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: Configure CMake
       run: |
