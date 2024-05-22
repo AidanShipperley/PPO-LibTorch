@@ -57,7 +57,7 @@ jobs:
         cuda: '12.1.1'
         method: 'network'
         sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart", "visual_studio_integration"]'
-
+    
     - name: Verify CUDA Toolkit Installation
       run: |
         echo "Installed cuda version is: ${{steps.cuda-toolkit-windows.outputs.cuda}}"
@@ -71,6 +71,25 @@ jobs:
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v2
+      with:
+        msbuild-architecture: x64
+
+    - name: Find Visual Studio installation
+      run: |
+        $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+        echo "Visual Studio installation path: $vsPath"
+        echo "VS_PATH=$vsPath" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+    - name: Add cl.exe to PATH
+      run: |
+        $clPath = Join-Path -Path $env:VS_PATH -ChildPath 'VC\Tools\MSVC'
+        $clPath = Join-Path -Path $clPath -ChildPath (Get-ChildItem -Path $clPath -Directory | Sort-Object -Property Name -Descending | Select-Object -First 1).Name
+        $clPath = Join-Path -Path $clPath -ChildPath 'bin\Hostx64\x64'
+        echo "cl.exe path: $clPath"
+        echo "$clPath" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: Download and Install LibTorch
       run: |
