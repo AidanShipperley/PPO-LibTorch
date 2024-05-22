@@ -35,15 +35,6 @@ jobs:
         echo "$PWD\ninja"
         echo "$PWD\ninja" >> $GITHUB_PATH
         echo "---"
-        [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-        echo "---"
-        echo "$env:PATH"
-        echo "---"
-        ninja.exe --version
-        echo "---"
-        echo "---"
-        echo "---"
-        ninja --version
 
     - name: Test Ninja
       run: |
