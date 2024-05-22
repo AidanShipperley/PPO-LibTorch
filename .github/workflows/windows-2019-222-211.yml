@@ -32,8 +32,9 @@ jobs:
         ls ".\"
         ls ".\ninja\"
         echo "---"
-        echo ";$PWD\ninja"
-        $env:PATH = "$PWD\ninja;" + $env:PATH
+        echo "$PWD\ninja"
+        echo "$GITHUB_WORKSPACE\ninja"
+        echo "$GITHUB_WORKSPACE\ninja" >> $GITHUB_PATH
         echo "---"
         [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
         echo "---"
