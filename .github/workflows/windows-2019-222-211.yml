@@ -17,38 +17,21 @@ env:
 
 jobs:
   build:
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
     runs-on: windows-2019
 
     steps:
     - uses: actions/checkout@v4
     - uses: ilammy/msvc-dev-cmd@v1
 
+    # Ninja is the recommended generator for LibTorch on windows
     - name: Download and Install Ninja
       run: |
         Start-BitsTransfer -Source ${{ env.NINJA_URL }} -Destination "ninja-win.zip"
         Expand-Archive -Path "ninja-win.zip" -DestinationPath ninja
-        ls ".\"
-        ls ".\ninja\"
-        echo "---"
-        echo "$PWD\ninja"
         echo "$PWD\ninja" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "---"
 
     - name: Test Ninja
       run: |
-        echo "---"
-        [Environment]::GetEnvironmentVariable("Path", [System.EnvironmentVariableTarget]::Machine)
-        echo "---"
-        echo "$env:PATH"
-        echo "$env:GITHUB_PATH"
-        echo "---"
-        ninja.exe --version
-        echo "---"
-        echo "---"
-        echo "---"
         ninja --version
 
     - name: Install CUDA Toolkit
@@ -68,11 +51,6 @@ jobs:
 
     - name: Add CUDA Toolkit Paths
       run: |
-        ls "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}"
-        echo "---"
-        ls "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin"
-        echo "---"
-        ls "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib\x64"
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}\lib\x64" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-windows.outputs.CUDA_PATH }}" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
@@ -86,15 +64,6 @@ jobs:
 
     - name: Configure CMake
       run: |
-        ninja --version
-        echo "---"
-        pwd
-        dir
-        cd "D:\a\PPO-LibTorch\PPO-LibTorch\"
-        echo "---"
-        pwd
-        dir
-        echo "---"
         cmake --preset x64-release -DCUDAToolkit_ROOT="${{ env.CUDAToolkit_ROOT }}" -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0" -DCMAKE_PREFIX_PATH="${{ env.LibTorch_ROOT }}"
 
     - name: Build
