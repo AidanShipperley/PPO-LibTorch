@@ -60,7 +60,6 @@ jobs:
         Start-BitsTransfer -Source ${{ env.LIBTORCH_URL }} -Destination libtorch.zip
         Expand-Archive -Path libtorch.zip -DestinationPath libtorch
         echo "LibTorch_ROOT=$PWD\libtorch\libtorch" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-        echo "$PWD\libtorch\libtorch\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
     - name: Configure CMake
       run: |
