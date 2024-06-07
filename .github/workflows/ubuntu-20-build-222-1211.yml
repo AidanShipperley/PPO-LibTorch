@@ -33,7 +33,6 @@ jobs:
       run: |
         echo "Installed cuda version is: ${{steps.cuda-toolkit-linux.outputs.cuda}}"
         echo "Cuda install location: ${{steps.cuda-toolkit-linux.outputs.CUDA_PATH}}"
-        cl
         nvcc -V
         cmake --version
 
