@@ -27,7 +27,7 @@ jobs:
       with:
         cuda: '12.1.1'
         method: 'network'
-        sub-packages: '["nvcc", "nvtx", "nvrtc", "cudart"]'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "nvrtc_dev", "cudart"]'
 
     - name: Verify CUDA Toolkit Installation
       run: |
@@ -39,7 +39,10 @@ jobs:
     - name: Add CUDA Toolkit Paths
       run: |
         echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}" >> $GITHUB_ENV
+        ls ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64/
         sudo ln -s ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64/libnvrtc.so.12.1.105 ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64/libnvrtc.so
+        echo "---"
+        ls ${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}/lib64/
 
     - name: Download and Install LibTorch
       run: |
