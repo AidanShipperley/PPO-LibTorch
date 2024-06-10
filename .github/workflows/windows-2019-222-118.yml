@@ -1,6 +1,5 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-name: Windows 2019 Build (LibTorch 2.2.2, CUDA 11.8.0)
+# CMake project running on a single platform.
+name: Windows Build (LibTorch 2.2.2|CUDA 11.8.0)
 
 on:
   push:
@@ -13,7 +12,6 @@ env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LIBTORCH_URL: https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.2.2%2Bcu118.zip
-  NINJA_URL: https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip
 
 jobs:
   build:
