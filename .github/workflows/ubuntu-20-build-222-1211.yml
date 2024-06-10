@@ -1,6 +1,5 @@
-# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
-# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
-name: Linux Ubuntu-20.04 Build (LibTorch 2.2.2, CUDA 12.1.1)
+# CMake project running on a single platform.
+name: Ubuntu-20.04 Build (LibTorch 2.2.2|CUDA 12.1.1)
 
 on:
   push:
