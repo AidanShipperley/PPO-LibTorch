@@ -1,5 +1,5 @@
 # CMake project running on a single platform.
-name: Ubuntu 20.04 Build LibTorch 2.2.2, CUDA 12.1.1
+name: Ubuntu 20.04 Build - LibTorch 2.2.2, CUDA 12.1.1
 
 on:
   push:
