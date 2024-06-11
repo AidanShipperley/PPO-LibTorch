@@ -1,5 +1,5 @@
 # CMake project running on a single platform.
-name: Windows Build (Torch 2.2.2|CUDA 11.8.0)
+name: Windows Build (2.2.2|11.8.0)
 
 on:
   push:
