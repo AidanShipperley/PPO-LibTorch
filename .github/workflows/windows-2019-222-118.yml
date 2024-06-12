@@ -1,5 +1,5 @@
 # CMake project running on a single platform.
-name: Windows 2019 Build - LibTorch 2.2.2, CUDA 11.8.0
+name: Windows 2019 Build (LibTorch 2.2.2, CUDA 11.8.0)--
 
 on:
   push:
