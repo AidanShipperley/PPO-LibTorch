@@ -3,6 +3,8 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
+include(CheckLanguage)
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -11,6 +13,23 @@ endif()
 
 # Attempt to enable cudnn
 project ("PPO" LANGUAGES CUDA CXX)
+
+# This script locates the NVIDIA CUDA toolkit and the associated libraries
+# Docs: https://cmake.org/cmake/help/latest/module/FindCUDAToolkit.html#findcudatoolkit
+# Issue Addresses: https://github.com/pytorch/pytorch/pull/116926#issuecomment-2034142022
+find_package(CUDAToolkit REQUIRED)
+
+check_language(CUDA)
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    message(STATUS "CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES: ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+    include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
+    message(STATUS "CUDAToolkit_ROOT: ${CUDAToolkit_ROOT}")
+
+    find_library(CUDA_nvrtc_LIBRARY nvrtc ${CUDAToolkit_ROOT})
+
+    message(STATUS "CUDA_nvrtc_LIBRARY: ${CUDA_nvrtc_LIBRARY}")
+endif()
 
 # Allow users to specify the path to LibTorch and enforce providing a path.
 set(LIBTORCH_PATH "./../libtorch" CACHE PATH "Path to LibTorch")
@@ -22,15 +41,31 @@ endif()
 
 # Find required LibTorch components
 find_package(Torch REQUIRED)
+# Find required TBB components
+# temp set (TBB_INCLUDE_DIRS "/usr/include;/usr/include/tbb")
+# temp set (TBB_LIBRARIES "tbb;/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
+
+include_directories(${TORCH_INCLUDE_DIRS})
+# temp include_directories(${TBB_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-set(CMAKE_CXX_FLAGS_RELEASE "/O2")
+
+# temp link_directories("/usr/lib/x86_64-linux-gnu/libtbb.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc.so;/usr/lib/x86_64-linux-gnu/libtbbmalloc_proxy.so")
+
+message(STATUS "TORCH_CXX_FLAGS: ${TORCH_CXX_FLAGS}")
+message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+message(STATUS "TBB_LIBRARIES: ${TBB_LIBRARIES}")
+message(STATUS "TORCH_CUDA_LIBRARIES: ${TORCH_CUDA_LIBRARIES}")
+message(STATUS "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
+message(STATUS "TBB_INCLUDE_DIRS: ${TBB_INCLUDE_DIRS}")
+message(STATUS "CUDA_LIBRARIES: ${CUDA_LIBRARIES}")
 
 # Add source to this project's executable.
 add_executable (PPO "PPO_Discrete.cpp" "PPO_Discrete.h" "PPO_MultiDiscrete.cpp" "PPO_MultiDiscrete.h" "driver.cpp" "ThreadPool.h" "ThreadPool.cpp" "Agent.h" "Agent.cpp" "Distributions/CategoricalMasked.h" "Distributions/CategoricalMasked.cpp" "Environments/MountainCar.h" "Environments/MountainCar.cpp" "Distributions/Categorical.h" "Distributions/Categorical.cpp" "Environments/CartPole.h" "Environments/CartPole.cpp" "Utils.h" "Utils.cpp")
 target_link_libraries(PPO "${TORCH_LIBRARIES}")
+# temp target_link_libraries(PPO "tbb")
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET PPO PROPERTY CXX_STANDARD 20)
+  set_property(TARGET PPO PROPERTY CXX_STANDARD 17)
 endif()
 
 # The following code block is suggested to be used on Windows.
@@ -45,4 +80,4 @@ if (MSVC)
                      $<TARGET_FILE_DIR:PPO>)
 endif (MSVC)
 
-# TODO: Add tests and install targets if needed.
+set_target_properties(PPO PROPERTIES CUDA_ARCHITECTURES "35;50;72")
