@@ -3,9 +3,9 @@ name: Windows 2019 Build (LibTorch 2.2.2, CUDA 11.8.0) --
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
 
 env:
