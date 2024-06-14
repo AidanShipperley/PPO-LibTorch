@@ -89,7 +89,7 @@ To build this project on Windows, it is recommended that you have Visual Studio 
     3. Leave `-DTORCH_CUDA_ARCH_LIST` as is, this is required as a [workaround to a bug in LibTorch](https://github.com/pytorch/pytorch/issues/113948#issuecomment-1886877697).
     ```bash
     cmake --preset x64-release \
-    -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing\Toolkit\CUDA\v11.8" \
+    -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8" \
     -DCMAKE_PREFIX_PATH="D:\a\PPO-LibTorch\PPO-LibTorch\libtorch\libtorch" \
     -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0"
     ```
