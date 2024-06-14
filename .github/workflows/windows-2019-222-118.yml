@@ -21,6 +21,7 @@ jobs:
     - uses: actions/checkout@v4
     - uses: ilammy/msvc-dev-cmd@v1
 
+    # See subpackage options here: https://docs.nvidia.com/cuda/archive/11.8.0/cuda-installation-guide-microsoft-windows/index.html#install-cuda-software
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.15
       id: cuda-toolkit-windows
