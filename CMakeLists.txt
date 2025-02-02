@@ -112,7 +112,7 @@ add_executable (PPO
     "Environments/CartPole.cpp" 
     "Utils.h" 
     "Utils.cpp"
- "cmake/check_cudnn_available.cpp")
+)
 
 # Link libraries
 if(CUDNN_FOUND)
