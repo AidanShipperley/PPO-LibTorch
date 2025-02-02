@@ -1,8 +1,3 @@
-# This file is a modified version of the FindCUDNN.cmake from OpenCV (https://github.com/opencv/opencv/blob/a03b81316782ae30038b288fd3568993fa1e3538/cmake/FindCUDNN.cmake) which uses the Apache License v2.0
-# This is compatible with the GPL v3.0 license used for this project according to Apache: https://www.apache.org/licenses/GPL-compatibility.html
-
-# The modifications basically remove the FindCUDA.cmake dependency in OpenCV's version, which is quite large and mainly needed for older CMake versions
-
 #[=======================================================================[.rst:
 FindCUDNN
 ---------
@@ -30,11 +25,25 @@ This will define the following variables:
 message(STATUS "FindCUDNN: Starting cuDNN search")
 
 if(WIN32)
-    # On Windows, the development files are in a specific location
-    set(_KNOWN_CUDNN_ROOT "C:/Program Files/NVIDIA/CUDNN")
+    # First check for user-specified path
+    if(NOT CUDNN_ROOT_DIR)
+        # Check environment variables
+        if(DEFINED ENV{CUDNN_ROOT_DIR})
+            set(CUDNN_ROOT_DIR $ENV{CUDNN_ROOT_DIR})
+        elseif(DEFINED ENV{CUDNN_ROOT})
+            set(CUDNN_ROOT_DIR $ENV{CUDNN_ROOT})
+        elseif(DEFINED ENV{CUDNN_PATH})
+            set(CUDNN_ROOT_DIR $ENV{CUDNN_PATH})
+        else()
+            # Default installation path on Windows
+            set(CUDNN_ROOT_DIR "C:/Program Files/NVIDIA/CUDNN")
+        endif()
+    endif()
+    
+    message(STATUS "FindCUDNN: CUDNN_ROOT_DIR = ${CUDNN_ROOT_DIR}")
     
     # Find the latest cuDNN version installed
-    file(GLOB _CUDNN_VERSIONS "${_KNOWN_CUDNN_ROOT}/v*")
+    file(GLOB _CUDNN_VERSIONS "${CUDNN_ROOT_DIR}/v*")
     if(_CUDNN_VERSIONS)
         # Get latest version
         list(SORT _CUDNN_VERSIONS)
@@ -49,15 +58,20 @@ if(WIN32)
         # Find development files
         find_library(CUDNN_LIBRARY
             NAMES cudnn
-            HINTS "${_LIB_PATH}"
+            HINTS 
+                "${_LIB_PATH}"
+                "${CUDNN_ROOT_DIR}/lib/x64"  # Allow for non-versioned paths too
             NO_DEFAULT_PATH
         )
         
         find_path(CUDNN_INCLUDE_DIR
             cudnn.h
-            HINTS "${_INCLUDE_PATH}"
+            HINTS 
+                "${_INCLUDE_PATH}"
+                "${CUDNN_ROOT_DIR}/include"  # Allow for non-versioned paths too
             NO_DEFAULT_PATH
         )
+
         
         if(CUDNN_LIBRARY AND CUDNN_INCLUDE_DIR)
             message(STATUS "FindCUDNN: Found cuDNN development files:")

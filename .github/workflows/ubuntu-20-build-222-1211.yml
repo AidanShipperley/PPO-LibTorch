@@ -11,7 +11,8 @@ on:
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  LIBTORCH_URL: https://download.pytorch.org/libtorch/cu121/libtorch-shared-with-deps-2.2.2%2Bcu121.zip
+  LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.6.0%2Bcu126.zip
+  CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/9.7.0/local_installers/cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb
 
 jobs:
   build:
@@ -21,10 +22,10 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.15
+      uses: Jimver/cuda-toolkit@v0.2.21
       id: cuda-toolkit-linux
       with:
-        cuda: '12.1.1'
+        cuda: '12.6.3'
         method: 'network'
         sub-packages: '["nvcc", "nvtx", "nvrtc", "nvrtc-dev", "cudart"]'
 
@@ -46,6 +47,14 @@ jobs:
         sudo apt update
         sudo apt install libtbb-dev ninja-build
         echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
+
+    - name: Download and Install cuDNN
+      run: |
+        curl -L ${{ env.CUDNN_URL }} --output cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb
+        sudo dpkg -i cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb
+        sudo cp /var/cudnn-local-repo-ubuntu2004-9.7.0/cudnn-*-keyring.gpg /usr/share/keyrings/
+        sudo apt-get update
+        sudo apt-get -y install cudnn-cuda-12
 
     - name: Configure CMake
       run: |
