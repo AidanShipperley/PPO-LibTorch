@@ -27,7 +27,7 @@ jobs:
       with:
         cuda: '12.6.3'
         method: 'network'
-        sub-packages: '["nvcc", "nvtx", "nvtx3", "nvrtc", "nvrtc-dev", "cudart"]'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "nvrtc-dev", "cudart"]'
 
     - name: Verify CUDA Toolkit Installation
       run: |
