@@ -71,6 +71,19 @@ if(CMAKE_CUDA_COMPILER)
     message(STATUS "CUDA_nvrtc_LIBRARY: ${CUDA_nvrtc_LIBRARY}")
 endif()
 
+# https://discuss.pytorch.org/t/failed-to-find-nvtoolsext/179635/13
+# only do this if nvToolsExt is not defined and CUDA::nvtx3 exists
+if(NOT TARGET CUDA::nvToolsExt AND TARGET CUDA::nvtx3)
+    message(STATUS "PyTorch NVTX headers workaround: Yes")
+    add_library(CUDA::nvToolsExt INTERFACE IMPORTED)
+    # ensure that PyTorch is told to use NVTX3 headers
+    target_compile_definitions(
+        CUDA::nvToolsExt INTERFACE
+        TORCH_CUDA_USE_NVTX3
+    )
+    target_link_libraries(CUDA::nvToolsExt INTERFACE CUDA::nvtx3)
+endif()
+
 # Find required LibTorch components
 find_package(Torch REQUIRED)
 
