@@ -21,27 +21,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - uses: ilammy/msvc-dev-cmd@v1
-  
-    - name: Download and Install cuDNN
-      run: |
-        Start-BitsTransfer -Source ${{ env.CUDNN_URL }} -Destination cudnn.zip
-        ls
-        Write-Host "------"
-        Expand-Archive -Path cudnn.zip -DestinationPath cudnn
-        ls
-        Write-Host "------"
-        $innerFolder = Get-ChildItem -Path cudnn | Where-Object { $_.PSIsContainer } | Select-Object -First 1
-        if ($innerFolder) {
-          Write-Host "Inner folder path: $($innerFolder.FullName)"
-          Write-Host "Inner folder name: $($innerFolder.Name)"
-          Rename-Item -Path $innerFolder.FullName -NewName "cudnn"
-        } else {
-          Write-Host "No inner folder found!"
-        }
-        cd .\cudnn
-        ls
-        Write-Host "------"
-        echo "CUDNN_ROOT_DIR=$PWD\cudnn\cudnn" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.21
@@ -70,9 +49,19 @@ jobs:
         Expand-Archive -Path libtorch.zip -DestinationPath libtorch
         echo "LibTorch_ROOT=$PWD\libtorch\libtorch" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
 
+    - name: Download and Install cuDNN
+      run: |
+        Start-BitsTransfer -Source ${{ env.CUDNN_URL }} -Destination cudnn.zip
+        Expand-Archive -Path cudnn.zip -DestinationPath cudnn
+        $innerFolder = Get-ChildItem -Path cudnn | Where-Object { $_.PSIsContainer } | Select-Object -First 1
+        if ($innerFolder) {
+          Rename-Item -Path $innerFolder.FullName -NewName "cudnn"
+        }
+        echo "CUDNN_ROOT_DIR=$PWD\cudnn\cudnn" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
     - name: Configure CMake
       run: |
-        cmake --preset x64-release -DCUDAToolkit_ROOT="${{ env.CUDAToolkit_ROOT }}" -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0" -DCMAKE_PREFIX_PATH="${{ env.LibTorch_ROOT }}"
+        cmake --preset x64-release -DCUDAToolkit_ROOT="${{ env.CUDAToolkit_ROOT }}" -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0" -DCMAKE_PREFIX_PATH="${{ env.LibTorch_ROOT }}" -DCUDNN_ROOT_DIR="${{ env.CUDNN_ROOT_DIR }}"
 
     - name: Build
       run: |
