@@ -1,5 +1,5 @@
 ﻿# CMakeList.txt : CMake project for PPO
-cmake_minimum_required (VERSION 3.8)
+cmake_minimum_required (VERSION 3.18 FATAL_ERROR)
 
 # Allow users to specify the path to LibTorch and enforce providing a path.
 set(LIBTORCH_PATH "./../libtorch" CACHE PATH "Path to LibTorch")
@@ -137,9 +137,9 @@ else()
     target_link_libraries(PPO PRIVATE ${TORCH_LIBRARIES})
 endif()
 
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET PPO PROPERTY CXX_STANDARD 17)
-endif()
+
+set_property(TARGET PPO PROPERTY CXX_STANDARD 17)
+
 
 # The following code block is suggested to be used on Windows.
 # According to https://github.com/pytorch/pytorch/issues/25457,

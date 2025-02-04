@@ -11,7 +11,7 @@ on:
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
-  LIBTORCH_URL: https://download.pytorch.org/libtorch/cu118/libtorch-win-shared-with-deps-2.6.0%2Bcu118.zip
+  LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-win-shared-with-deps-2.6.0%2Bcu126.zip
   CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.7.0.66_cuda11-archive.zip
 
 jobs:
