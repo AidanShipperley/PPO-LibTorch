@@ -29,9 +29,9 @@ jobs:
       uses: Jimver/cuda-toolkit@v0.2.21
       id: cuda-toolkit-windows
       with:
-        cuda: '11.8.0'
+        cuda: '12.6.3'
         method: 'network'
-        sub-packages: '["nvcc", "nvtx", "nsight_nvtx", "nvrtc", "nvrtc_dev", "cudart", "visual_studio_integration"]'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "nvrtc_dev", "cudart", "cublas", "cublas_dev", "visual_studio_integration"]'
 
     - name: Test All Required Build Tools Function
       run: |
