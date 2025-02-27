@@ -12,7 +12,7 @@ env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.6.0%2Bcu126.zip
-  CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/9.7.0/local_installers/cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb
+  CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/9.7.1/local_installers/cudnn-local-repo-ubuntu2004-9.7.1_1.0-1_amd64.deb
 
 jobs:
   build:
@@ -53,17 +53,22 @@ jobs:
 
     - name: Download and Install cuDNN
       run: |
-        curl -L ${{ env.CUDNN_URL }} --output cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb
-        sudo dpkg -i cudnn-local-repo-ubuntu2004-9.7.0_1.0-1_amd64.deb
-        sudo cp /var/cudnn-local-repo-ubuntu2004-9.7.0/cudnn-*-keyring.gpg /usr/share/keyrings/
+        curl -L ${{ env.CUDNN_URL }} --output cudnn-local-repo-ubuntu2004-9.7.1_1.0-1_amd64.deb
+        sudo dpkg -i cudnn-local-repo-ubuntu2004-9.7.1_1.0-1_amd64.deb
+        sudo cp /var/cudnn-local-repo-ubuntu2004-9.7.1/cudnn-*-keyring.gpg /usr/share/keyrings/
         sudo apt-get update
         sudo apt-get -y install cudnn-cuda-12
 
     - name: Configure CMake
       run: |
-        cmake --preset linux-release -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0" -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }}
+        cmake --preset linux-release -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }}
 
     - name: Build
       run: |
         cd ./build/linux-release/
         cmake --build . --config ${{ env.BUILD_TYPE }}
+
+    - name: Test Build
+      run: |
+        cd ./build/linux-release/
+        ./CompilationChecker

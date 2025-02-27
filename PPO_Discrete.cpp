@@ -56,8 +56,9 @@ PPO_Discrete::PPO_Discrete() {
     at::globalContext().setAllowTF32CuBLAS(true);
     at::globalContext().setAllowTF32CuDNN(true);
 
-    // Used FP16 mixed precision
+    // Allow FP16 mixed precision
     // https://pytorch.org/docs/stable/notes/cuda.html#reduced-precision-reduction-in-fp16-gemms
+    // NOTE: This will only speedup code if we use torch::kHalf, which we don't atm. In the future we can do this optionally
     at::globalContext().setAllowFP16ReductionCuBLAS(true);
 
     // Initialize device

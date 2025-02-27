@@ -47,11 +47,70 @@ if(WIN32)
     
     message(STATUS "FindCUDNN: CUDNN_ROOT_DIR = ${CUDNN_ROOT_DIR}")
     
+    # Get CUDA major version for search paths
+    set(_CUDA_MAJOR_VERSION "${CUDAToolkit_VERSION_MAJOR}")
+    message(STATUS "FindCUDNN: CUDA major version: ${_CUDA_MAJOR_VERSION}")
+    
+    # Function to find the latest available minor version directory for given major version
+    function(find_latest_cuda_minor_dir BASE_DIR MAJOR_VERSION OUTPUT_VAR)
+        file(GLOB _VERSION_DIRS "${BASE_DIR}/${MAJOR_VERSION}.*")
+        
+        # Check if we have any directories
+        if(_VERSION_DIRS)
+            # Sort directories to get the latest version
+            list(SORT _VERSION_DIRS)
+            list(GET _VERSION_DIRS -1 _LATEST_VERSION_DIR)
+            get_filename_component(_VERSION_NAME "${_LATEST_VERSION_DIR}" NAME)
+            set(${OUTPUT_VAR} "${_VERSION_NAME}" PARENT_SCOPE)
+            message(STATUS "FindCUDNN: Found latest CUDA version directory: ${_VERSION_NAME}")
+        else()
+            message(STATUS "FindCUDNN: No CUDA version directories found in ${BASE_DIR}")
+            set(${OUTPUT_VAR} "" PARENT_SCOPE)
+        endif()
+    endfunction()
+    
     # Function to search for cuDNN in a specific directory structure
-    function(find_cudnn_in_directory BASE_PATH VERSION_PATH CUDA_VERSION)
+    function(find_cudnn_in_directory BASE_PATH VERSION_PATH)
+        # Get LATEST available CUDA minor version for specified major version
+        if(EXISTS "${BASE_PATH}/${VERSION_PATH}/bin")
+            find_latest_cuda_minor_dir("${BASE_PATH}/${VERSION_PATH}/bin" "${_CUDA_MAJOR_VERSION}" LATEST_BIN_VERSION)
+        endif()
+        
+        if(EXISTS "${BASE_PATH}/${VERSION_PATH}/include")
+            find_latest_cuda_minor_dir("${BASE_PATH}/${VERSION_PATH}/include" "${_CUDA_MAJOR_VERSION}" LATEST_INCLUDE_VERSION)
+        endif()
+        
+        if(EXISTS "${BASE_PATH}/${VERSION_PATH}/lib")
+            find_latest_cuda_minor_dir("${BASE_PATH}/${VERSION_PATH}/lib" "${_CUDA_MAJOR_VERSION}" LATEST_LIB_VERSION)
+        endif()
+        
+        # Use the found latest version or default to current
+        if(LATEST_BIN_VERSION)
+            set(_BIN_VERSION "${LATEST_BIN_VERSION}")
+        else()
+            set(_BIN_VERSION "${_CUDA_MAJOR_VERSION}")
+        endif()
+        
+        if(LATEST_INCLUDE_VERSION)
+            set(_INCLUDE_VERSION "${LATEST_INCLUDE_VERSION}")
+        else()
+            set(_INCLUDE_VERSION "${_CUDA_MAJOR_VERSION}")
+        endif()
+        
+        if(LATEST_LIB_VERSION)
+            set(_LIB_VERSION "${LATEST_LIB_VERSION}")
+        else()
+            set(_LIB_VERSION "${_CUDA_MAJOR_VERSION}")
+        endif()
+        
+        message(STATUS "FindCUDNN: Using bin version: ${_BIN_VERSION}")
+        message(STATUS "FindCUDNN: Using include version: ${_INCLUDE_VERSION}")
+        message(STATUS "FindCUDNN: Using lib version: ${_LIB_VERSION}")
+        
         set(_LIB_PATHS
-            # GUI Install paths
-            "${BASE_PATH}/${VERSION_PATH}/lib/${CUDA_VERSION}/x64"
+            # Versioned paths based on detected latest version
+            "${BASE_PATH}/${VERSION_PATH}/lib/${_LIB_VERSION}/x64"
+            # Other common paths without version
             "${BASE_PATH}/${VERSION_PATH}/lib/x64"
             # ZIP install paths
             "${BASE_PATH}/lib/x64"
@@ -59,24 +118,42 @@ if(WIN32)
         )
         
         set(_INCLUDE_PATHS
-            # GUI Install paths
-            "${BASE_PATH}/${VERSION_PATH}/include/${CUDA_VERSION}"
+            # Versioned paths based on detected latest version
+            "${BASE_PATH}/${VERSION_PATH}/include/${_INCLUDE_VERSION}"
+            # Other common paths without version
             "${BASE_PATH}/${VERSION_PATH}/include"
             # ZIP install paths
             "${BASE_PATH}/include"
         )
         
         set(_BIN_PATHS
-            # GUI Install paths
-            "${BASE_PATH}/${VERSION_PATH}/bin/${CUDA_VERSION}"
+            # Versioned paths based on detected latest version
+            "${BASE_PATH}/${VERSION_PATH}/bin/${_BIN_VERSION}"
+            # Other common paths without version
             "${BASE_PATH}/${VERSION_PATH}/bin"
             # ZIP install paths
             "${BASE_PATH}/bin"
         )
         
+        # Debug print the search paths
+        message(STATUS "FindCUDNN: Searching in lib paths:")
+        foreach(path ${_LIB_PATHS})
+            message(STATUS "  ${path}")
+        endforeach()
+        
+        message(STATUS "FindCUDNN: Searching in include paths:")
+        foreach(path ${_INCLUDE_PATHS})
+            message(STATUS "  ${path}")
+        endforeach()
+        
+        message(STATUS "FindCUDNN: Searching in bin paths:")
+        foreach(path ${_BIN_PATHS})
+            message(STATUS "  ${path}")
+        endforeach()
+        
         # Find Library
         find_library(CUDNN_LIBRARY
-            NAMES cudnn
+            NAMES cudnn cudnn8 cudnn9
             HINTS ${_LIB_PATHS}
             NO_DEFAULT_PATH
         )
@@ -91,10 +168,13 @@ if(WIN32)
         # Find DLLs
         if(EXISTS "${CUDNN_LIBRARY}")
             foreach(_bin_path ${_BIN_PATHS})
+                # Report which DLL path we're checking
+                message(STATUS "FindCUDNN: Checking for DLLs in: ${_bin_path}")
                 file(GLOB _CUDNN_DLLS "${_bin_path}/cudnn*.dll")
                 if(_CUDNN_DLLS)
                     get_filename_component(CUDNN_DLL_DIR "${_bin_path}" ABSOLUTE)
                     set(CUDNN_DLL_DIR "${CUDNN_DLL_DIR}" PARENT_SCOPE)
+                    message(STATUS "FindCUDNN: Found DLLs in: ${CUDNN_DLL_DIR}")
                     break()
                 endif()
             endforeach()
@@ -105,9 +185,6 @@ if(WIN32)
         set(CUDNN_INCLUDE_DIR "${CUDNN_INCLUDE_DIR}" PARENT_SCOPE)
     endfunction()
 
-    # Get CUDA version for version-specific paths
-    set(_CUDA_VERSION "${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR}")
-    
     # First check for GUI installation with version directory
     file(GLOB _VERSION_DIRS "${CUDNN_ROOT_DIR}/v*")
     if(_VERSION_DIRS)
@@ -118,18 +195,26 @@ if(WIN32)
         message(STATUS "FindCUDNN: Found version directory: ${_VERSION_NAME}")
         
         # Search in versioned directory
-        find_cudnn_in_directory("${CUDNN_ROOT_DIR}" "${_VERSION_NAME}" "${_CUDA_VERSION}")
+        find_cudnn_in_directory("${CUDNN_ROOT_DIR}" "${_VERSION_NAME}")
     endif()
     
     # If not found in version directory, try direct installation layout
     if(NOT CUDNN_LIBRARY OR NOT CUDNN_INCLUDE_DIR)
         message(STATUS "FindCUDNN: Trying direct installation layout")
-        find_cudnn_in_directory("${CUDNN_ROOT_DIR}" "" "")
+        find_cudnn_in_directory("${CUDNN_ROOT_DIR}" "")
+    endif()
+    
+    # If still not found, try in CUDA toolkit directory
+    if(NOT CUDNN_LIBRARY OR NOT CUDNN_INCLUDE_DIR)
+        if(CUDAToolkit_ROOT)
+            message(STATUS "FindCUDNN: Trying CUDA toolkit directory: ${CUDAToolkit_ROOT}")
+            find_cudnn_in_directory("${CUDAToolkit_ROOT}" "")
+        endif()
     endif()
 else()
     # On Linux/Mac, look for the library in standard locations
     find_library(CUDNN_LIBRARY
-        NAMES cudnn
+        NAMES cudnn cudnn8 cudnn9
         HINTS ${CUDAToolkit_ROOT}
         PATH_SUFFIXES lib lib64 cuda/lib cuda/lib64
     )
@@ -175,9 +260,7 @@ if(CUDNN_FOUND)
     message(STATUS "Found cuDNN:")
     message(STATUS "  Library: ${CUDNN_LIBRARY}")
     message(STATUS "  Include: ${CUDNN_INCLUDE_DIR}")
-    if(WIN32 AND CUDNN_DLL_DIR)
-        message(STATUS "  DLLs: ${CUDNN_DLL_DIR}")
-    endif()
+    message(STATUS "  Version: ${CUDNN_VERSION}")
     
     # Force enable CAFFE2_USE_CUDNN
     set(CAFFE2_USE_CUDNN TRUE CACHE BOOL "Use cuDNN" FORCE)
