@@ -18,12 +18,8 @@ if (POLICY CMP0141)
   set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
 endif()
 
-include(CheckLanguage)
-
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}")
-
-# Configure CUDA before project declaration
-include(CUDASetup)
+# Configure project first with CXX language
+project("PPO" LANGUAGES CXX)
 
 # Check if LIBTORCH_PATH is provided
 if("${LIBTORCH_PATH}" STREQUAL "")
@@ -32,25 +28,57 @@ else()
     list(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_PATH}")
 endif()
 
-# Configure project with CUDA
-project ("PPO" LANGUAGES CUDA CXX)
+# Check for CUDA
+include(CheckLanguage)
+check_language(CUDA)
+
+# Enable CUDA if available
+if(CMAKE_CUDA_COMPILER)
+    enable_language(CUDA)
+    
+    # Configure CUDA architectures
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES native)
+    endif()
+    
+    # Check for minimum required CUDA version
+    find_package(CUDAToolkit REQUIRED)
+    set(MINIMUM_CUDA_VERSION 12.4)
+    
+    if(CUDAToolkit_VERSION VERSION_LESS ${MINIMUM_CUDA_VERSION})
+        message(FATAL_ERROR 
+            "CUDA version ${CUDAToolkit_VERSION} found, but version ${MINIMUM_CUDA_VERSION} or newer is required.\n"
+            "This is needed for compatibility with the latest MSVC compilers.\n"
+            "Please upgrade CUDA Toolkit or use an older MSVC version."
+        )
+    endif()
+    
+    message(STATUS "Found CUDA ${CUDAToolkit_VERSION}")
+endif()
+
+# Enable cuDNN for LibTorch
+set(USE_CUDNN 1 CACHE BOOL "Use cuDNN" FORCE)
+set(CAFFE2_USE_CUDNN 1 CACHE BOOL "Use cuDNN" FORCE)
 
 # Find required LibTorch components
 find_package(Torch REQUIRED)
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
+# After LibTorch is found, cuDNN should already be available if present
+# No need to find it separately
 
 # Diagnostic messages
-message(STATUS "CUDNN_FOUND: ${CUDNN_FOUND}")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
-message(STATUS "CMAKE_CUDA_FLAGS: ${CMAKE_CUDA_FLAGS}")
-message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
-message(STATUS "TORCH_CUDA_LIBRARIES: ${TORCH_CUDA_LIBRARIES}")
-message(STATUS "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
-message(STATUS "CUDA_LIBRARIES: ${CUDA_LIBRARIES}")
-if(CUDNN_FOUND)
-    message(STATUS "CUDNN_LIBRARIES: ${CUDNN_LIBRARIES}")
+if(CMAKE_CUDA_COMPILER)
+    message(STATUS "CUDNN_FOUND: ${CUDNN_FOUND}")
+    message(STATUS "CMAKE_CUDA_FLAGS: ${CMAKE_CUDA_FLAGS}")
+    message(STATUS "TORCH_CUDA_LIBRARIES: ${TORCH_CUDA_LIBRARIES}")
+    message(STATUS "CUDA_LIBRARIES: ${CUDA_LIBRARIES}")
+    if(CUDNN_FOUND)
+        message(STATUS "CUDNN_LIBRARIES: ${CUDNN_LIBRARIES}")
+    endif()
 endif()
+message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+message(STATUS "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # Add source to this project's executable.
 add_executable (PPO 
@@ -78,7 +106,7 @@ add_executable (PPO
 add_executable(CompilationChecker "Testing/check_compilation.cpp")
 
 # Link libraries
-if(CUDNN_FOUND)
+if(CMAKE_CUDA_COMPILER AND CUDNN_FOUND)
     # Link the executables with LibTorch and cuDNN
     target_link_libraries(PPO PRIVATE 
         ${TORCH_LIBRARIES}
@@ -88,7 +116,6 @@ if(CUDNN_FOUND)
         ${TORCH_LIBRARIES}
         ${CUDNN_LIBRARIES}
     )
-
 else()
     # Link the executables just with LibTorch
     target_link_libraries(PPO PRIVATE ${TORCH_LIBRARIES})
