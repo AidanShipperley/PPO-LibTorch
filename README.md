@@ -1,4 +1,4 @@
-# PPO-LibTorch <br> [![Ubuntu 20 Build (Torch 2.2.2|CUDA 12.1.1)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-20-build-222-1211.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-20-build-222-1211.yml) [![Windows Build (Torch 2.2.2|CUDA 11.8.0)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-2019-222-118.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-2019-222-118.yml)
+# PPO-LibTorch <br> [![Ubuntu Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml) [![Windows Build (Torch 2.2.2|CUDA 11.8.0)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-2019-222-118.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-2019-222-118.yml)
 PPO-LibTorch is a fully open-source and robust pure C++ implementation of [Proximal Policy Optimization](https://openai.com/index/openai-baselines-ppo/) converted from the wonderful [ICLR Blog Post by Huang, et al](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) using LibTorch, the official C++ frontend for PyTorch.
 
 # Table of Contents
@@ -76,7 +76,7 @@ To build this project on Windows, it is recommended that you have Visual Studio 
     ```
 
     ```bash
-    git clone https://github.com/AidanShipperley/PPO_LibTorch.git
+    git clone --recurse-submodules https://github.com/AidanShipperley/PPO_LibTorch.git
     ```
 
     ```bash
@@ -128,7 +128,7 @@ To build this project on Linux, you can follow these steps.
 
 3. Navigate to a directory and clone the repository:
     ```bash
-    git clone https://github.com/AidanShipperley/PPO_LibTorch.git
+    git clone --recurse-submodules https://github.com/AidanShipperley/PPO_LibTorch.git
     ```
 
 4. Configure the Linux Release build by running the following.

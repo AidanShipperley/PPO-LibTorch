@@ -1,5 +1,5 @@
-# CMake project running on a single platform.
-name: Ubuntu 20.04 Build (LibTorch 2.2.2, CUDA 12.1.1) --
+# CMake project running on multiple Ubuntu versions.
+name: Ubuntu Build (LibTorch 2.6.0, CUDA 12.6.3) --
 
 on:
   push:
@@ -12,16 +12,27 @@ env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.6.0%2Bcu126.zip
-  CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/9.7.1/local_installers/cudnn-local-repo-ubuntu2004-9.7.1_1.0-1_amd64.deb
 
 jobs:
   build:
-    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        ubuntu: ['20.04', '22.04', '24.04']
+      fail-fast: false  # Continue with other builds if one fails
+    
+    name: Ubuntu ${{ matrix.ubuntu }} Build
+    runs-on: ubuntu-${{ matrix.ubuntu }}
 
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
+
+    - name: Set Ubuntu-specific variables
+      run: |
+        ubuntu_version="${{ matrix.ubuntu }}"
+        ubuntu_version_no_dots=$(echo $ubuntu_version | tr -d '.')
+        echo "CUDNN_URL=https://developer.download.nvidia.com/compute/cudnn/9.7.1/local_installers/cudnn-local-repo-ubuntu${ubuntu_version_no_dots}-9.7.1_1.0-1_amd64.deb" >> $GITHUB_ENV
 
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.21
@@ -53,9 +64,9 @@ jobs:
 
     - name: Download and Install cuDNN
       run: |
-        curl -L ${{ env.CUDNN_URL }} --output cudnn-local-repo-ubuntu2004-9.7.1_1.0-1_amd64.deb
-        sudo dpkg -i cudnn-local-repo-ubuntu2004-9.7.1_1.0-1_amd64.deb
-        sudo cp /var/cudnn-local-repo-ubuntu2004-9.7.1/cudnn-*-keyring.gpg /usr/share/keyrings/
+        curl -L ${{ env.CUDNN_URL }} --output cudnn-local-repo.deb
+        sudo dpkg -i cudnn-local-repo.deb
+        sudo cp /var/cudnn-local-repo-ubuntu*/cudnn-*-keyring.gpg /usr/share/keyrings/
         sudo apt-get update
         sudo apt-get -y install cudnn-cuda-12
 
