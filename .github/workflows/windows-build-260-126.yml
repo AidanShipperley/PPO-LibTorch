@@ -1,5 +1,5 @@
 # CMake project running on multiple Windows versions.
-name: Windows Build (LibTorch 2.6.0, CUDA 12.6.3) 
+name: Windows Build (LibTorch 2.6.0, CUDA 12.6.3)-
 on:
   push:
     branches:

@@ -1,5 +1,5 @@
 # CMake project running on multiple Ubuntu versions.
-name: Ubuntu Build (LibTorch 2.6.0, CUDA 12.6.3) 
+name: Ubuntu Build (LibTorch 2.6.0, CUDA 12.6.3)-
 
 on:
   push:
