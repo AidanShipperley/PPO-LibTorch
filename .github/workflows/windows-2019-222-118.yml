@@ -1,30 +1,33 @@
-# CMake project running on a single platform.
-name: Windows 2019 Build (LibTorch 2.2.2, CUDA 11.8.0) --
-
+# CMake project running on multiple Windows versions.
+name: Windows Build (LibTorch 2.6.0, CUDA 12.6.3) --
 on:
   push:
     branches:
       - main
+      - Add-CuDNN-Support
   pull_request:
   workflow_dispatch:
-
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
   BUILD_TYPE: Release
   LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-win-shared-with-deps-2.6.0%2Bcu126.zip
   CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.7.1.26_cuda12-archive.zip
-
 jobs:
   build:
-    runs-on: windows-2019
+    strategy:
+      matrix:
+        windows-version: [windows-2019, windows-2022, windows-2025]
+      fail-fast: false
 
+    runs-on: ${{ matrix.windows-version }}
     steps:
+
     - uses: actions/checkout@v4
       with:
         submodules: 'recursive'
 
     - uses: ilammy/msvc-dev-cmd@v1
-
+  
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.21
       id: cuda-toolkit-windows
@@ -65,7 +68,7 @@ jobs:
     - name: Configure CMake
       run: |
         cmake --preset x64-release -DCUDAToolkit_ROOT="${{ env.CUDAToolkit_ROOT }}" -DCMAKE_PREFIX_PATH="${{ env.LibTorch_ROOT }}" -DCUDNN_ROOT_DIR="${{ env.CUDNN_ROOT_DIR }}"
-
+    
     - name: Build
       run: |
         cd .\build\x64-release\
