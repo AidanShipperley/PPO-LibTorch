@@ -16,7 +16,7 @@ jobs:
   build:
     strategy:
       matrix:
-        windows-version: [windows-2019, windows-2022, windows-2025]
+        windows-version: [windows-2019]
       fail-fast: false
 
     runs-on: ${{ matrix.windows-version }}
