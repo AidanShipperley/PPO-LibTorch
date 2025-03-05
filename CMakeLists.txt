@@ -63,11 +63,9 @@ set(CAFFE2_USE_CUDNN 1 CACHE BOOL "Use cuDNN" FORCE)
 # Find required LibTorch components
 find_package(Torch REQUIRED)
 
-# After LibTorch is found, cuDNN should already be available if present
-# No need to find it separately
-
 # Diagnostic messages
-message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
+message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+message(STATUS "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 if(CMAKE_CUDA_COMPILER)
     message(STATUS "CUDNN_FOUND: ${CUDNN_FOUND}")
     message(STATUS "CMAKE_CUDA_FLAGS: ${CMAKE_CUDA_FLAGS}")
@@ -77,8 +75,6 @@ if(CMAKE_CUDA_COMPILER)
         message(STATUS "CUDNN_LIBRARIES: ${CUDNN_LIBRARIES}")
     endif()
 endif()
-message(STATUS "TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
-message(STATUS "TORCH_INCLUDE_DIRS: ${TORCH_INCLUDE_DIRS}")
 
 # Add source to this project's executable.
 add_executable (PPO 

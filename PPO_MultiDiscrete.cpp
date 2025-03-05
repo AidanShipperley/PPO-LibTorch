@@ -48,7 +48,7 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
 
     // Global Speedups
     // Enable optimized cuDNN algorithms, works best with non-fluxuating input size, perfect for RL
-    // https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936
+    // https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/3
     at::globalContext().setBenchmarkCuDNN(true);
 
     // Use float32 tensor cores on Ampere GPUs, less precision for ~7x speedup

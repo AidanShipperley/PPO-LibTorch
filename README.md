@@ -7,6 +7,7 @@ PPO-LibTorch is a fully open-source and robust pure C++ implementation of [Proxi
 3. [Build From Source](#build)
     1. [Windows](#windows)
     2. [Linux](#linux)
+    3. [Test your Build](#test-your-build)
 4. [Running The Example Environment](#running-the-example-environment)
 5. [Deploying Your Finished Model](#deploying-your-finished-model)
 
@@ -33,13 +34,14 @@ PPO-LibTorch offers a few unique features:
 
 # Requirements
 1. A Windows or Linux machine
-2. [CMake](https://cmake.org/download/) >= 3.18, which is required to build this project
-3. [LibTorch](https://pytorch.org/get-started/locally/)
+2. [CMake](https://cmake.org/download/) (>=3.19), which is required to build this project
+3. [LibTorch](https://pytorch.org/get-started/locally/) (>=2.6.0)
 <p>&emsp;&emsp;&emsp;
     <img src="https://user-images.githubusercontent.com/70974869/192141845-f631e6c8-d01e-44b8-8af3-38109f76c645.JPG" width="500">
 </p>
 
-4. [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) matching the LibTorch version you chose (optional if you are only using CPU)
+4. [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) (>=12.4,<=12.6.3), matching the LibTorch version you chose (optional if you are only using CPU)
+5. [cuDNN](https://developer.nvidia.com/cudnn-archive) (>=9.7.0) (optional if you are only using CPU)
 
 
 > Note: You may select either CPU or CUDA, but CUDA is highly recommended. You must have an NVIDIA GPU in order to use CUDA.
@@ -49,8 +51,6 @@ PPO-LibTorch offers a few unique features:
 Below are the steps necessary to build this project on your machine.
 
 ## Windows
-
-> **NOTE (6/6/2024): Windows currently cannot compile LibTorch with CUDA Toolkit >= 12.0 as a result of the Libtorch maintainers not accounting for a change in NVTX. A fix is currently being worked on by the PyTorch team. [See my comment here for more information.](https://discuss.pytorch.org/t/failed-to-find-nvtoolsext/179635/9?u=aidanshipperley) I recommend you use CUDA Toolkit 11.8 on Windows until this is fixed.**
 
 To build this project on Windows, it is recommended that you have Visual Studio 2019 or later and install C++ build tools through the visual studio installer. This is Microsoft's recommended method of accessing C++ build tools on Windows. This section will detail how to build assuming you have Visual Studio.
 
@@ -85,13 +85,11 @@ To build this project on Windows, it is recommended that you have Visual Studio 
 
 4. Configure the x64 Release build by running the following.
     1. Set `-DCUDAToolkit_ROOT` to the root directory of your CUDA Toolkit. On Windows, this should be located at `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\vXX.x\`
-    2. Set `-DCMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing you `\bin` and `\lib` folders.
-    3. Leave `-DTORCH_CUDA_ARCH_LIST` as is, this is required as a [workaround to a bug in LibTorch](https://github.com/pytorch/pytorch/issues/113948#issuecomment-1886877697).
+    2. Set `-DCMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing your `\bin` and `\lib` folders.
     ```bash
     cmake --preset x64-release \
-    -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8" \
-    -DCMAKE_PREFIX_PATH="D:\a\PPO-LibTorch\PPO-LibTorch\libtorch\libtorch" \
-    -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0"
+    -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6" \
+    -DCMAKE_PREFIX_PATH="D:\a\PPO-LibTorch\PPO-LibTorch\libtorch\libtorch"
     ```
 
 5. Navigate into the release build directory:
@@ -135,12 +133,11 @@ To build this project on Linux, you can follow these steps.
 
 4. Configure the Linux Release build by running the following.
     1. Set `-DCUDAToolkit_ROOT` to the root directory of your CUDA Toolkit. On Ubuntu, this should be located at `/usr/local/cuda-XX.x/`
-    2. Set `-DCMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing you `/bin` and `/lib64` folders.
-    3. Leave `-DTORCH_CUDA_ARCH_LIST` as is, this is required as a [workaround to a bug in LibTorch](https://github.com/pytorch/pytorch/issues/113948#issuecomment-1886877697).
+    2. Set `-DCMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing your `/bin` and `/lib64` folders.
     ```bash
-    cmake --preset linux-release -DCUDAToolkit_ROOT=/usr/local/cuda-12.1 \
-    -DCMAKE_PREFIX_PATH=/home/runner/work/PPO-LibTorch/PPO-LibTorch/libtorch/libtorch \
-    -DTORCH_CUDA_ARCH_LIST="8.0 8.6 8.9 9.0"
+    cmake --preset linux-release \
+    -DCUDAToolkit_ROOT=/usr/local/cuda-12.6 \
+    -DCMAKE_PREFIX_PATH=/home/runner/work/PPO-LibTorch/PPO-LibTorch/libtorch/libtorch
     ```
 
 5. Navigate into the release build directory:
@@ -152,6 +149,21 @@ To build this project on Linux, you can follow these steps.
     ```bash
     cmake --build . --config Release
     ```
+
+
+## Test your Build
+
+Included in the PPO build is a standalone executable that you can use to test that CUDA & cuDNN are working properly. You can run this to both confirm that there were no problems with the installation and see what kind of speedup you can expect on your machine, compare it's speed to others, etc.
+
+On Windows:
+```bash
+.\CompilationChecker.exe
+```
+
+On Linux:
+```bash
+./CompilationChecker
+```
 
 ---
 
