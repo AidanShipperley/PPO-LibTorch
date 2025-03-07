@@ -21,7 +21,7 @@
 class Agent : public torch::nn::Module {
 
 public:
-    Agent(int obsSize, int actionSize, std::shared_ptr<torch::Device> device);
+    Agent(int64_t obsSize, int64_t actionSize, std::shared_ptr<torch::Device> device);
     ~Agent();
     torch::nn::Linear ppoLayerInit(torch::nn::Linear layer, double stdDev = sqrt(2), const double bias_const = 0.0);
     torch::Tensor getValue(torch::Tensor x);
@@ -37,8 +37,8 @@ public:
     // vector must be identical to the number of actions you want
     // your agent to take
     std::vector<int64_t>            m_actionSpace;
-    int                             m_actionSpaceSum;
-    int                             m_actionSpaceSize;
+    int64_t                         m_actionSpaceSum;
+    int64_t                         m_actionSpaceSize;
     //std::ofstream m_logfile;
     std::shared_ptr<torch::Device>  m_device;
 

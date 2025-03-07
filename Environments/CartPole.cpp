@@ -1,6 +1,6 @@
 #include "CartPole.h"
 
-CartPole::CartPole(int seed) 
+CartPole::CartPole(int64_t seed)
     : gen(seed), dis(-0.05f, 0.05f) { // initialize gen with rd() and dis with desired range
 
     gravity = 9.8f;
@@ -33,7 +33,7 @@ CartPole::~CartPole() {
 
 std::vector<float> CartPole::reset() {
 
-    for (int i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 4; i++) {
         state[i] = randomUniform();
     }
     terminated = false;
@@ -44,7 +44,7 @@ std::vector<float> CartPole::reset() {
     return state;
 }
 
-std::tuple<std::vector<float>, float, bool, bool> CartPole::step(const int action) {
+std::tuple<std::vector<float>, float, bool, bool> CartPole::step(const int64_t& action) {
 
     float x = state[0];
     float x_dot = state[1];

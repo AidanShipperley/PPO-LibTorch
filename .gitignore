@@ -401,4 +401,5 @@ FodyWeavers.xsd
 =======
 .vs/
 out/
+.vscode/
 >>>>>>> 6a5d9d4 (First commit, do not use code)

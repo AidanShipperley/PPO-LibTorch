@@ -14,7 +14,7 @@ class ThreadPool {
 public:
 
     ThreadPool();
-    ThreadPool(int numThreads);
+    ThreadPool(int64_t numThreads);
     ~ThreadPool();
     void start();
     void queueJob(std::function<void()> job);
@@ -23,7 +23,7 @@ public:
     bool busy();
     void ThreadLoop();
 
-    int m_numThreads;
+    int64_t m_numThreads;
 
 private:
 
@@ -33,7 +33,7 @@ private:
     std::condition_variable job_finished;
     std::vector<std::thread> threads;
     std::deque<std::function<void()>> jobs;
-    unsigned int processing;
+    uint64_t processing;
 
 };
 

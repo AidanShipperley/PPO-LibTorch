@@ -8,7 +8,7 @@ ThreadPool::ThreadPool() {
 
 }
 
-ThreadPool::ThreadPool(int numThreads) {
+ThreadPool::ThreadPool(int64_t numThreads) {
 
     m_numThreads = numThreads;
     processing = 0;
@@ -50,7 +50,7 @@ void ThreadPool::ThreadLoop() {
 
 void ThreadPool::start() {
     threads.resize(m_numThreads);
-    for (uint32_t i = 0; i < m_numThreads; i++) {
+    for (uint64_t i = 0; i < m_numThreads; i++) {
         threads.at(i) = std::thread(&ThreadPool::ThreadLoop, this);
     }
     std::cout << "made " << threads.size() << " threads in pool" << std::endl;

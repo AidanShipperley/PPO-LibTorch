@@ -1,4 +1,4 @@
-﻿# CMakeList.txt : CMake project for PPO
+﻿# CMakeLists.txt : CMake project for PPO
 
 # CMake 3.19 is needed for both LibTorch support and support for build presets
 cmake_minimum_required (VERSION 3.19 FATAL_ERROR)
@@ -78,24 +78,25 @@ endif()
 
 # Add source to this project's executable.
 add_executable (PPO 
-    "PPO_Discrete.cpp" 
-    "PPO_Discrete.h" 
-    "PPO_MultiDiscrete.cpp" 
-    "PPO_MultiDiscrete.h" 
-    "driver.cpp" 
-    "ThreadPool.h" 
-    "ThreadPool.cpp" 
-    "Agent.h" 
-    "Agent.cpp" 
-    "Distributions/CategoricalMasked.h" 
-    "Distributions/CategoricalMasked.cpp" 
-    "Environments/MountainCar.h" 
-    "Environments/MountainCar.cpp" 
-    "Distributions/Categorical.h" 
-    "Distributions/Categorical.cpp" 
-    "Environments/CartPole.h" 
-    "Environments/CartPole.cpp" 
-    "Utils.h" 
+    "PPO_Discrete.cpp"
+    "PPO_Discrete.h"
+    "PPO_MultiDiscrete.cpp"
+    "PPO_MultiDiscrete.h"
+    "driver.cpp"
+    "ThreadPool.h"
+    "ThreadPool.cpp"
+    "Agent.h"
+    "Agent.cpp"
+    "Distributions/CategoricalMasked.h"
+    "Distributions/CategoricalMasked.cpp"
+    "Environments/MountainCar.h"
+    "Environments/MountainCar.cpp"
+    "Distributions/Categorical.h"
+    "Distributions/Categorical.cpp"
+    "Environments/CartPole.h"
+    "Environments/CartPole.cpp"
+    "third_party/tomlplusplus/toml.hpp"
+    "Utils.h"
     "Utils.cpp")
 
 # Add the CUDA checker executable
@@ -108,14 +109,21 @@ if(CMAKE_CUDA_COMPILER AND CUDNN_FOUND)
         ${TORCH_LIBRARIES}
         ${CUDNN_LIBRARIES}
     )
-    target_link_libraries(CompilationChecker
+    target_link_libraries(CompilationChecker PRIVATE
         ${TORCH_LIBRARIES}
         ${CUDNN_LIBRARIES}
     )
 else()
     # Link the executables just with LibTorch
     target_link_libraries(PPO PRIVATE ${TORCH_LIBRARIES})
-    target_link_libraries(CompilationChecker "${TORCH_LIBRARIES}")
+    target_link_libraries(CompilationChecker PRIVATE "${TORCH_LIBRARIES}")
+endif()
+
+# Silence LibTorch build warnings that I have no control over
+if(MSVC)
+    # Disable C4267 warnings (conversion from size_t to smaller type)
+    target_compile_options(PPO PRIVATE /wd4267)
+    target_compile_options(CompilationChecker PRIVATE /wd4267)
 endif()
 
 set_property(TARGET PPO PROPERTY CXX_STANDARD 17)

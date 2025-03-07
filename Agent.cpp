@@ -16,19 +16,12 @@
  // Creates PPO's agent, which contains the actor
  // and the critic's networks.
  //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Agent::Agent(int obsSize, int actionSize, std::shared_ptr<torch::Device> device) {
+Agent::Agent(int64_t obsSize, int64_t actionSize, std::shared_ptr<torch::Device> device) {
 
     m_actionSpace = { actionSize };//{ 3, 3, 3, 3, 3, 2, 2, 2 };
-    m_actionSpaceSum = std::accumulate(m_actionSpace.begin(), m_actionSpace.end(), 0);
+    m_actionSpaceSum = std::accumulate(m_actionSpace.begin(), m_actionSpace.end(), static_cast<int64_t>(0));
 
-    // We MUST initialize all linear layers here FIRST if we want consistent weight 
-    // initialization with Python's PPO implementation.
-    // 
-    // If we try to make a sequential model literally identically to the python code, it offsets
-    // the random number generation for some reason. This took me two weeks to figure out :)
-    // 
-    // If I ever meet who wrote the sequential model code for libtorch I will have to have a
-    // "chat" with them.
+    // Initialize all linear layers here
     torch::nn::Linear criticInputLayer = ppoLayerInit(torch::nn::Linear(obsSize, 64));
     torch::nn::Linear criticMiddleLayer = ppoLayerInit(torch::nn::Linear(64, 64));
     //torch::nn::Linear criticMiddleLayer2 = ppoLayerInit(torch::nn::Linear(256, 256));
@@ -153,7 +146,7 @@ std::array<torch::Tensor, 4> Agent::getActionAndValueMasked(torch::Tensor x, con
     std::vector<torch::Tensor> multi_categorical_logprob(multi_categoricals.size());
     std::vector<torch::Tensor> multi_categorical_entropy(multi_categoricals.size());
 
-    for (int i = 0; i < split_logits.size(); i++) {
+    for (int64_t i = 0; i < split_logits.size(); i++) {
         multi_categoricals[i] = CategoricalMasked(split_logits[i], split_action_masks[i], m_device);
         if (!action.numel()) {
             multi_categorical_samples[i] = multi_categoricals[i].sample();
@@ -164,7 +157,7 @@ std::array<torch::Tensor, 4> Agent::getActionAndValueMasked(torch::Tensor x, con
         action = torch::stack(multi_categorical_samples);
     }
 
-    for (int i = 0; i < multi_categoricals.size(); i++) {
+    for (int64_t i = 0; i < multi_categoricals.size(); i++) {
         multi_categorical_logprob[i] = multi_categoricals[i].log_prob(action[i]);
         multi_categorical_entropy[i] = multi_categoricals[i].entropy();
     }

@@ -5,10 +5,10 @@
 #include <iomanip>
 
 // Utility function for timing operations
-double timeOperation(const std::function<void()>& operation, int iterations = 10) {
+double timeOperation(const std::function<void()>& operation, int64_t iterations = 10) {
     auto start = std::chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < iterations; i++) {
+    for (int64_t i = 0; i < iterations; i++) {
         operation();
     }
 

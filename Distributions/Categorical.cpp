@@ -32,7 +32,7 @@ Categorical::Categorical(const torch::Tensor& logits, std::shared_ptr<torch::Dev
     // Normalize
     m_logits = logits - logits.logsumexp(/*dim=*/-1, /*keepdim=*/true);
     m_probs = logits_to_probs(logits);
-    m_num_events = m_probs.sizes().back();
+    m_num_events = static_cast<int64_t>(m_probs.sizes().back());
 
     m_device = device;
 
@@ -75,8 +75,7 @@ torch::Tensor Categorical::sample() {
 
     torch::Tensor probs_2d = m_probs.reshape({ -1, m_num_events });
     torch::Tensor samples_2d = torch::multinomial(probs_2d, 1, true).t();
-    return samples_2d.reshape(m_probs.sizes()[0]); // TEST THIS
-
+    return samples_2d.reshape(static_cast<int64_t>(m_probs.sizes()[0]));
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -125,7 +124,11 @@ torch::Tensor Categorical::entropy() {
 // Returns mean of the categorical distribution
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 torch::Tensor Categorical::mean() {
-    return torch::full({ m_probs.sizes()[0] }, std::numeric_limits<float>::quiet_NaN(), torch::TensorOptions().device(*m_device).dtype(m_probs.dtype()));
+    return torch::full(
+        { static_cast<int64_t>(m_probs.sizes()[0]) },
+        std::numeric_limits<float>::quiet_NaN(),
+        torch::TensorOptions().device(*m_device).dtype(m_probs.dtype())
+    );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -143,7 +146,11 @@ torch::Tensor Categorical::mode() {
 // Returns variance of the categorical distribution
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 torch::Tensor Categorical::variance() {
-    return torch::full({ m_probs.sizes()[0] }, std::numeric_limits<float>::quiet_NaN(), torch::TensorOptions().device(*m_device).dtype(m_probs.dtype()));
+    return torch::full(
+        { static_cast<int64_t>(m_probs.sizes()[0]) },
+        std::numeric_limits<float>::quiet_NaN(),
+        torch::TensorOptions().device(*m_device).dtype(m_probs.dtype())
+    );
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -154,6 +161,6 @@ torch::Tensor Categorical::variance() {
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 torch::Tensor Categorical::enumerate_support() {
     torch::Tensor values = torch::arange(m_num_events, torch::TensorOptions().dtype(torch::kLong).device(*m_device));
-    values = values.view({ -1, 1 }).expand({ -1, m_probs.sizes()[0] });
+    values = values.view({ -1, 1 }).expand({ -1, static_cast<int64_t>(m_probs.sizes()[0]) });
     return values;
 }

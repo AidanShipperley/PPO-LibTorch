@@ -32,7 +32,7 @@ CategoricalMasked::CategoricalMasked(const torch::Tensor& logits, const torch::T
 
     // Set logits to negative infinity where the action is invalid
     m_masks = masks.to(torch::kBool).to(*device);
-    torch::Tensor maskedLogits = torch::where(m_masks, logits, -1e8);
+    torch::Tensor maskedLogits = torch::where(m_masks, logits, -1e8f);
 
     // This is just how logits are initialized, so I'm keeping everything identical
     // (https://pytorch.org/docs/stable/_modules/torch/distributions/categorical.html#Categorical)
@@ -67,7 +67,7 @@ CategoricalMasked::~CategoricalMasked() {
 // Converted from:
 // https://github.com/pytorch/pytorch/blob/c29502dd2fa38c79ada620fbde2f61d58df6e219/torch/distributions/utils.py#L67-L76
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-torch::Tensor CategoricalMasked::logits_to_probs(torch::Tensor logits, bool is_binary /*= false*/) {
+torch::Tensor CategoricalMasked::logits_to_probs(torch::Tensor logits, bool is_binary/*= false*/) {
 
     if (is_binary) {
         return torch::sigmoid(logits);

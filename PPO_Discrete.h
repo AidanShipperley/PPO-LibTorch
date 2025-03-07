@@ -4,6 +4,8 @@
 #include <iostream>
 #include <filesystem> // create dirs to save models, search for args
 #include <string>
+#include <vector>
+#include <fstream>
 #include <algorithm> // std::fill
 #include <execution> // std::execution::par
 #include <chrono> // Everything to keep track of timing
@@ -11,6 +13,7 @@
 #include <numeric> // std::accumulate
 #include <deque> // episode lengths and rewards logging
 #include <torch/torch.h>
+#include "third_party/tomlplusplus/toml.hpp"
 
 #include "Agent.h"
 #include "ThreadPool.h"
@@ -40,28 +43,28 @@ public:
     std::array<torch::Tensor, 3> stepEnvs(const torch::Tensor& action);
 
     // Printing results to console
-    void printPPOResults(int update, int global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
+    void printPPOResults(int64_t update, int64_t global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
                          torch::Tensor& approx_kl, torch::Tensor& entropy_loss, torch::Tensor& explained_var, torch::Tensor& loss,
                          torch::Tensor& pg_loss, torch::Tensor& v_loss);
     template<typename T> void printElement(T t, const int& width);
 
     // Hyperparameters
-    int                                     m_obs_size;
-    int                                     m_action_size;
+    int64_t                                 m_obs_size;
+    int64_t                                 m_action_size;
     float                                   m_learning_rate;          // The learning rate of the experiment
-    int                                     m_seed;                   // The seed of the experiment for consistent test results
-    int                                     m_total_timesteps;        // The total timesteps of the experiments
+    int64_t                                 m_seed;                   // The seed of the experiment for consistent test results
+    int64_t                                 m_total_timesteps;        // The total timesteps of the experiments
     bool                                    m_use_cuda;               // Whether or not to attempt to use cuda. Will default to cpu if no device is found
-    bool                                    m_torch_deterministic;    // Whether or not to make all torch calculations deterministic/reproducable. 
+    bool                                    m_torch_deterministic;    // Whether or not to make all torch calculations deterministic/reproducible. 
                                                                       // Should probably always be true
-    int                                     m_num_envs;               // The number of paralell game environments to run
-    int                                     m_num_steps;              // The number of steps to run in each environment per policy rollout
+    int64_t                                 m_num_envs;               // The number of parallel game environments to run
+    int64_t                                 m_num_steps;              // The number of steps to run in each environment per policy rollout
     bool                                    m_anneal_lr;              // Whether or not to anneal the learning rate over time
     bool                                    m_use_gae;                // Whether or not to use Generalized Advantage Estimation
     float                                   m_gamma;                  // Gamma hyperparameter of GAE
-    float                                   m_gae_lambda;             // Lambda hyperparamter of GAE
-    int                                     m_num_minibatches;        // Number of training minibatches per update 
-    int                                     m_update_epochs;          // Number of epochs when optimizing the surrogate loss
+    float                                   m_gae_lambda;             // Lambda hyperparameter of GAE
+    int64_t                                 m_num_minibatches;        // Number of training minibatches per update 
+    int64_t                                 m_update_epochs;          // Number of epochs when optimizing the surrogate loss
     bool                                    m_norm_adv;               // Whether or not to normalize the advantage
     float                                   m_clip_coef;              // Clipping parameter
     bool                                    m_clip_vloss;             // Whether or not to clip the value function loss
@@ -69,17 +72,16 @@ public:
     float                                   m_vf_coef;                // Value function coefficient for the loss calculation
     float                                   m_max_grad_norm;          // The maximum value for gradient clipping
 
-    int                                     m_checkpoint_updates;     // How often you would like to checkpoint your model and optimizer
-    int                                     m_max_episode_steps;      // How long an episode can run before automatically terminating
+    int64_t                                 m_checkpoint_updates;     // How often you would like to checkpoint your model and optimizer
+    int64_t                                 m_max_episode_steps;      // How long an episode can run before automatically terminating
 
     // Calculated from other variables
-    int                                     m_batch_size;
-    int                                     m_minibatch_size;
+    int64_t                                 m_batch_size;
+    int64_t                                 m_minibatch_size;
     std::shared_ptr<torch::Device>          m_device;
 
     // PPO Modules
     std::shared_ptr<Agent>                  m_agent;
-    //torch::optim::Adam                      m_optimizer(){};
     std::shared_ptr<torch::optim::AdamW>    m_optimizer;
 
     // Storage variables
@@ -94,9 +96,8 @@ public:
     // Logging variables
     //std::shared_ptr<TensorBoardLogger>    m_logger;
     std::vector<float>                      m_clipfracs;
-    std::deque<int>                         m_episode_lengths;
-    std::deque<int>                         m_episode_rewards;
-    unsigned int                            m_global_step;
+    std::unique_ptr<CircularBuffer>         m_episode_stats;
+    uint64_t                                m_global_step;
 
     // Thread pool
     std::shared_ptr<ThreadPool>             m_threadPool;

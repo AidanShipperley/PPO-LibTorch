@@ -8,7 +8,7 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
     m_action_size = 1;
     m_action_high = 1.0f; // Only used in continuous action spaces
     m_action_low = -1.0f; // Only used in continuous action spaces
-    m_learning_rate = 0.0003;
+    m_learning_rate = 0.0003f;
     m_seed = 1;
     m_total_timesteps = 100000;
     m_use_cuda = true;
@@ -30,8 +30,10 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
     m_checkpoint_updates = 5;
     m_max_episode_steps = 200;
 
-    m_batch_size = int(m_num_envs * m_num_steps);
-    m_minibatch_size = int(m_batch_size / m_num_minibatches);
+    m_batch_size = static_cast<int64_t>(m_num_envs * m_num_steps);
+    m_minibatch_size = static_cast<int64_t>(m_batch_size / m_num_minibatches);
+
+    m_global_step = 0;
 
     // Now check if there's a config file, and if so, update hyperparams based on sheet
     PPO_MultiDiscrete::getArgs();
@@ -40,7 +42,7 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
     m_threadPool = std::make_shared<ThreadPool>(std::thread::hardware_concurrency());
 
     // Seed randomization
-    srand(m_seed);
+    srand(static_cast<unsigned int>(m_seed));
     torch::manual_seed(m_seed);
     at::globalContext().setDeterministicCuDNN(m_torch_deterministic ? true : false);
     // https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
@@ -56,8 +58,9 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
     at::globalContext().setAllowTF32CuBLAS(true);
     at::globalContext().setAllowTF32CuDNN(true);
 
-    // Used FP16 mixed precision
+    // Allow FP16 mixed precision
     // https://pytorch.org/docs/stable/notes/cuda.html#reduced-precision-reduction-in-fp16-gemms
+    // NOTE: This will only speedup code if we use torch::kHalf, which we don't atm. In the future we can do this optionally
     at::globalContext().setAllowFP16ReductionCuBLAS(true);
 
     // Initialize device
@@ -73,13 +76,17 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
 
     // Initialize Adam optimizer with respect to agents parameters
     m_optimizer = std::make_shared<torch::optim::AdamW>(
-        m_agent->parameters(), torch::optim::AdamWOptions(m_learning_rate).eps(1e-5)
+        m_agent->parameters(), torch::optim::AdamWOptions(m_learning_rate).eps(1e-5f)
     );
 
+    // If any checkpoints exist, load them and resume previous training
+    loadPolicyFromCheckpoint();
+
     // Initialize Environments
-    for (int i = 0; i < m_num_envs; i++) {
-        m_envs.push_back(MountainCar());
+    for (int64_t i = 0; i < m_num_envs; i++) {
+        m_envs.push_back(std::make_shared<MountainCar>());
     }
+    std::cout << "made envs" << std::endl;
 
     // Initialize storage variables
     m_obs = torch::zeros({ m_num_steps, m_num_envs, m_obs_size }).to(*m_device);
@@ -97,19 +104,6 @@ PPO_MultiDiscrete::PPO_MultiDiscrete() {
 PPO_MultiDiscrete::~PPO_MultiDiscrete() {
 
 
-}
-
-
-std::string PPO_MultiDiscrete::formatString(std::string& str) {
-    // Remove whitespace
-    str.erase(std::remove(str.begin(), str.end(), ' '), str.end());
-
-    // Make all lowercase
-    std::transform(str.begin(), str.end(), str.begin(),
-        [](unsigned char c) { return std::tolower(c); } // correct
-    );
-
-    return str;
 }
 
 void PPO_MultiDiscrete::getArgs() {
@@ -134,20 +128,20 @@ void PPO_MultiDiscrete::getArgs() {
 
         // Loop through whole file for specific hyperparameters
         while (getline(configFile, configText)) {
-            configText = PPO_MultiDiscrete::formatString(configText); // Remove whitespaces and makes lowercase
+            configText = PPOUtils::formatString(configText); // Remove whitespaces and makes lowercase
             // Check to make sure hyperparameter is valid
             bool identified = false;
-            for (int i = 0; i < hyperParamStrings.size(); i++) {
+            for (size_t i = 0; i < hyperParamStrings.size(); i++) {
                 if (hyperParamStrings.at(i) == configText.substr(0, configText.find("="))) {
                     identified = true;
 
                     if (hyperParamStrings.at(i) == "obs_size") {
-                        m_obs_size = stoi(configText.substr(configText.find("=") + 1));
+                        m_obs_size = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file obs_size = " << m_obs_size << std::endl;
                     }
 
                     else if (hyperParamStrings.at(i) == "action_size") {
-                        m_action_size = stoi(configText.substr(configText.find("=") + 1));
+                        m_action_size = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file action_size = " << m_action_size << std::endl;
                     }
 
@@ -167,12 +161,12 @@ void PPO_MultiDiscrete::getArgs() {
                     }
 
                     else if (hyperParamStrings.at(i) == "seed") {
-                        m_seed = stoi(configText.substr(configText.find("=") + 1));
+                        m_seed = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file seed = " << m_seed << std::endl;
                     }
 
                     else if (hyperParamStrings.at(i) == "total_timesteps") {
-                        m_total_timesteps = stoi(configText.substr(configText.find("=") + 1));
+                        m_total_timesteps = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file total_timesteps = " << m_total_timesteps << std::endl;
                     }
 
@@ -187,12 +181,12 @@ void PPO_MultiDiscrete::getArgs() {
                     }
 
                     else if (hyperParamStrings.at(i) == "num_envs") {
-                        m_num_envs = stoi(configText.substr(configText.find("=") + 1));
+                        m_num_envs = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file num_envs = " << m_num_envs << std::endl;
                     }
 
                     else if (hyperParamStrings.at(i) == "num_steps") {
-                        m_num_steps = stoi(configText.substr(configText.find("=") + 1));
+                        m_num_steps = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file num_steps = " << m_num_steps << std::endl;
                     }
 
@@ -217,12 +211,12 @@ void PPO_MultiDiscrete::getArgs() {
                     }
 
                     else if (hyperParamStrings.at(i) == "num_minibatches") {
-                        m_num_minibatches = stoi(configText.substr(configText.find("=") + 1));
+                        m_num_minibatches = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file num_minibatches = " << m_num_minibatches << std::endl;
                     }
 
                     else if (hyperParamStrings.at(i) == "update_epochs") {
-                        m_update_epochs = stoi(configText.substr(configText.find("=") + 1));
+                        m_update_epochs = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file update_epochs = " << m_update_epochs << std::endl;
                     }
 
@@ -257,12 +251,12 @@ void PPO_MultiDiscrete::getArgs() {
                     }
 
                     else if (hyperParamStrings.at(i) == "checkpoint_updates") {
-                        m_checkpoint_updates = stoi(configText.substr(configText.find("=") + 1));
+                        m_checkpoint_updates = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file checkpoint_updates = " << m_checkpoint_updates << std::endl;
                     }
 
                     else if (hyperParamStrings.at(i) == "max_episode_steps") {
-                        m_max_episode_steps = stoi(configText.substr(configText.find("=") + 1));
+                        m_max_episode_steps = static_cast<int64_t>(stoi(configText.substr(configText.find("=") + 1)));
                         std::cout << "Using config file max_episode_steps = " << m_max_episode_steps << std::endl;
                         }
 
@@ -275,8 +269,8 @@ void PPO_MultiDiscrete::getArgs() {
             }
         }
 
-        m_batch_size = int(m_num_envs * m_num_steps);
-        m_minibatch_size = int(m_batch_size / m_num_minibatches);
+        m_batch_size = static_cast<int64_t>(m_num_envs * m_num_steps);
+        m_minibatch_size = static_cast<int64_t>(m_batch_size / m_num_minibatches);
     }
 
 }
@@ -294,22 +288,31 @@ std::vector<torch::Tensor> PPO_MultiDiscrete::computeActionLogic(const torch::Te
 
 }
 
-
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// calcAdvantage() -> std::array<torch::Tensor, 2>
+// -------------------------
+// This function calculates the advantage, which is an estimate 
+// of how much better an action is compared to the average action 
+// at a given state.It uses either the Generalized Advantage 
+// Estimation(GAE) algorithm or a regular advantage calculation, 
+// depending on whether the m_use_gae variable is true or false.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 std::array<torch::Tensor, 2> PPO_MultiDiscrete::calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) {
 
     torch::NoGradGuard no_grad;
 
-    torch::Tensor nextvalues = torch::Tensor();
     torch::Tensor nextnonterminal = torch::Tensor();
     // bootstrap value if not done
     torch::Tensor next_value = m_agent->getValue(next_obs).reshape({ 1, -1 });
 
     // GAE implementation
     if (m_use_gae) {
+        torch::Tensor nextvalues = torch::Tensor();
+
         torch::Tensor advantages = torch::zeros_like(m_rewards).to(*m_device);
         torch::Tensor lastgaelam = torch::zeros({ 1, m_num_envs }).to(*m_device);
 
-        for (int t = m_num_steps - 1; t >= 0; t--) {
+        for (int64_t t = m_num_steps - 1; t >= 0; t--) {
 
             if (t == m_num_steps - 1) {
                 nextnonterminal = 1.0 - next_done;
@@ -330,30 +333,46 @@ std::array<torch::Tensor, 2> PPO_MultiDiscrete::calcAdvantage(const torch::Tenso
 
     // Regular advantage calculation
     else {
-        int i = 0;
-        //returns = torch.zeros_like(rewards).to(device)
-        //for t in reversed(range(args.num_steps)):
-        //    if t == args.num_steps - 1:
-        //        nextnonterminal = 1.0 - next_done
-        //        next_return = next_value
-        //    else:
-        //        nextnonterminal = 1.0 - dones[t + 1]
-        //        next_return = returns[t + 1]
-        //    returns[t] = rewards[t] + args.gamma * nextnonterminal * next_return
-        //advantages = returns - values
+
+        torch::Tensor next_return = torch::Tensor();
+        
+        torch::Tensor returns = torch::zeros_like(m_rewards).to(*m_device);
+        for (int64_t t = m_num_steps - 1; t >= 0; t--) {
+
+            if (t == m_num_steps - 1) {
+                nextnonterminal = 1.0 - next_done;
+                next_return = next_value;
+            }
+            else {
+                nextnonterminal = 1.0 - m_dones[t + 1];
+                next_return = returns[t + 1];
+            }
+            returns[t] = m_rewards[t] + m_gamma * nextnonterminal * next_return;
+        }
+
+        return { returns, returns - m_values };
+
     }
 
 }
 
-
-torch::Tensor PPO_MultiDiscrete::getApproxKLAndClippedObj(torch::Tensor& ratio, torch::Tensor& logratio) {
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// getApproxKLAndClippedObj() -> torch::Tensor
+// -------------------------
+// This function computes the approximate Kullback - Leibler(KL) 
+// divergence and the objective with clipped ratios. The KL divergence 
+// is a measure of how one probability distribution differs from a 
+// second, expected probability distribution. The clipped objective 
+// is a way of limiting the updates to the policy during optimization 
+// to make training more stable.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+torch::Tensor PPO_MultiDiscrete::getApproxKLAndClippedObj(const torch::Tensor& ratio, const torch::Tensor& logratio) {
 
     torch::NoGradGuard no_grad;
 
     // Measure of how often the clipped objective is actually triggered
     torch::Tensor clippedRatios = torch::gt((ratio - 1.0).abs(), m_clip_coef);
-    m_clipfracs.push_back(float(clippedRatios.count_nonzero().item<int>()) / float(clippedRatios.size(0)));
-    //m_clipfracs = float(clippedRatios.count_nonzero().item<int>() / clippedRatios.size(0));
+    m_clipfracs.push_back(static_cast<float>(clippedRatios.count_nonzero().item<int64_t>()) / static_cast<float>(clippedRatios.size(0)));
 
     //torch::Tensor old_approx_kl = (-logratio.mean()); // Original implementation approximates -log ratio
     torch::Tensor approx_kl = ((ratio - 1) - logratio).mean(); // Better estimator has been recently found
@@ -362,14 +381,20 @@ torch::Tensor PPO_MultiDiscrete::getApproxKLAndClippedObj(torch::Tensor& ratio, 
 
 }
 
-
-torch::Tensor PPO_MultiDiscrete::initEnvs(torch::Tensor& action_mask) {
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// initEnvs() -> torch::Tensor
+// -------------------------
+// This function initializes the environments by creating an 
+// observation tensor for each environment and resetting each 
+// one. The observations are stored in a tensor and returned.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+torch::Tensor PPO_MultiDiscrete::initEnvs(const torch::Tensor& action_mask) {
 
     // Construct initial_obs
     torch::Tensor obs = torch::zeros({ m_num_envs, m_obs_size }, torch::TensorOptions(*m_device).dtype(torch::kFloat32));
 
     // Put data into initial obs for each agent
-    for (int i = 0; i < m_num_envs; i++) {
+    for (int64_t i = 0; i < m_num_envs; i++) {
 
         // // Add job to pool to get initial observation from env
         m_threadPool->queueJob([this, i, &obs, &action_mask]() mutable {
@@ -379,14 +404,14 @@ torch::Tensor PPO_MultiDiscrete::initEnvs(torch::Tensor& action_mask) {
             torch::Tensor tensor_mask = torch::ones(m_obs_size, torch::kBool);
 
             // Reset the environment and get a float vector of the state
-            std::vector<float> vec_obs = m_envs[i].reset();
+            std::vector<float> vec_obs = m_envs[i]->reset();
 
             // Copy float vector to tensor (Note: This is by far the fastest method to convert float vectors to tensors)
             std::memcpy(tensor_obs.data_ptr(), vec_obs.data(), sizeof(float) * tensor_obs.numel());
             obs[i] = tensor_obs;
 
             // Compute action mask for environment
-            action_mask[i] = m_envs[i].getActionMask();
+            action_mask[i] = m_envs[i]->getActionMask();
 
         });
 
@@ -398,6 +423,15 @@ torch::Tensor PPO_MultiDiscrete::initEnvs(torch::Tensor& action_mask) {
     return obs;
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// stepEnvs() -> std::array<torch::Tensor, 3>
+// -------------------------
+// This function steps through each environment with the given action. 
+// It creates new tensors for observations, rewards, and done statuses, 
+// steps through the environment with the provided action, and checks 
+// if the environment has terminated.If it has, it resets the 
+// environment and logs the reward and length of the episode.
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 std::array<torch::Tensor, 3> PPO_MultiDiscrete::stepEnvs(const torch::Tensor& action) {
     
     // Construct initial vars
@@ -410,11 +444,11 @@ std::array<torch::Tensor, 3> PPO_MultiDiscrete::stepEnvs(const torch::Tensor& ac
 
     // Create vector to log done and rewards
     std::vector<bool> envs_finished(m_num_envs, false);
-    std::vector<int> envs_length(m_num_envs, 0);
+    std::vector<int64_t> envs_length(m_num_envs, 0);
     std::vector<float> envs_reward(m_num_envs, 0);
 
     // Run a step in each environment
-    for (int i = 0; i < m_num_envs; i++) {
+    for (int64_t i = 0; i < m_num_envs; i++) {
 
         // // Add job to pool to get initial observation from env
         m_threadPool->queueJob([this, i, &obs, &reward, &done, &vec_action, &envs_finished, &envs_length, &envs_reward]() mutable {
@@ -425,16 +459,12 @@ std::array<torch::Tensor, 3> PPO_MultiDiscrete::stepEnvs(const torch::Tensor& ac
             torch::Tensor tensor_done = torch::zeros(1, torch::kInt32);
 
             // Step the environment
-            auto [vec_obs, f_reward, b_terminated, b_info] = m_envs[i].step(vec_action[i]);
+            auto [vec_obs, f_reward, b_terminated, b_info] = m_envs[i]->step(vec_action[i]);
 
             // Terminate the environment if we've reached the max episode steps
-            if (m_envs[i].episode_length == m_max_episode_steps) {
+            if (m_envs[i]->episode_length == m_max_episode_steps) {
                 b_terminated = true;
             }
-
-            //if (i == 0) {
-                //std::cout << "action: " << vec_action[i] << ", position: " << m_envs[i].state[0] << ", velocity: " << m_envs[i].state[1] << ", reward: " << f_reward << std::endl;
-           // }
 
             // If the i-th sub-environment is done (terminated or truncated) after stepping with the 
             // i-th action action[i], envs would set its returned next_done[i] to 1, auto-reset the 
@@ -444,9 +474,9 @@ std::array<torch::Tensor, 3> PPO_MultiDiscrete::stepEnvs(const torch::Tensor& ac
             // Reset i-th sub-env if done
             if (b_terminated) {
                 envs_finished[i] = true;
-                envs_length[i] = m_envs[i].episode_length;
-                envs_reward[i] = m_envs[i].episode_reward;
-                vec_obs = m_envs[i].reset();
+                envs_length[i] = m_envs[i]->episode_length;
+                envs_reward[i] = m_envs[i]->episode_reward;
+                vec_obs = m_envs[i]->reset();
             }
 
             // Copy float vector to tensor (Note: This is by far the fastest method to convert float vectors to tensors)
@@ -463,22 +493,16 @@ std::array<torch::Tensor, 3> PPO_MultiDiscrete::stepEnvs(const torch::Tensor& ac
     m_threadPool->waitForJobsToFinish();
 
     // Log episode reward and length on episode completion
-    for (int i = 0; i < envs_finished.size(); i++) {
+    for (size_t i = 0; i < envs_finished.size(); i++) {
 
         if (envs_finished[i]) {
 
-            if (m_episode_rewards.size() >= (100 * m_num_envs)) { 
+            while (m_episode_rewards.size() >= (10 * static_cast<size_t>(m_num_envs))) {
                 m_episode_rewards.pop_front();
                 m_episode_lengths.pop_front();
             }
             m_episode_rewards.push_back(envs_reward[i]);
             m_episode_lengths.push_back(envs_length[i]);
-
-            //for (auto iter = m_episode_rewards.rbegin(); iter != m_episode_rewards.rend(); ++iter) {
-            //    std::cout << "m_episode_rewards: " << * iter << std::endl;
-            //}
-
-            //std::cout << "episode of length " << envs_length[i] << " finished with reward " << envs_reward[i] << std::endl;
 
         }
 
@@ -487,27 +511,22 @@ std::array<torch::Tensor, 3> PPO_MultiDiscrete::stepEnvs(const torch::Tensor& ac
     return { obs, reward, done };
 }
 
-
-
-
-
 void PPO_MultiDiscrete::train() {
 
     // Start the threads in a thread pool
     m_threadPool->start();
 
     // Initialize starting variables
-    unsigned int global_step = 0;
+    uint64_t global_step = m_global_step;
     std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point update_time = std::chrono::steady_clock::now();
     torch::Tensor next_obs = torch::zeros({ m_num_envs, m_obs_size }, torch::kFloat32).to(*m_device);
     torch::Tensor next_done = torch::zeros({ m_num_envs }).to(*m_device);
     torch::Tensor next_mask = torch::ones({ m_num_envs, 3 }, torch::kBool).to(*m_device);
-    int num_updates = int(m_total_timesteps / m_batch_size);
+    int64_t num_updates = static_cast<int64_t>((m_total_timesteps - global_step) / m_batch_size);
 
     // Setup environments
     next_obs = initEnvs(next_mask);
-    
     
     //    Variables required for scope in C++   //
     torch::Tensor v_loss = torch::empty(1).requires_grad_();
@@ -519,7 +538,7 @@ void PPO_MultiDiscrete::train() {
     //////////////////////////////////////////////
 
     // Training loop
-    for (int update = 1; update < num_updates + 1; update++) {
+    for (int64_t update = 1; update < num_updates + 1; update++) {
 
         // Annealing the learning rate if instructed to do so
         if (m_anneal_lr) {
@@ -528,8 +547,11 @@ void PPO_MultiDiscrete::train() {
             static_cast<torch::optim::AdamWOptions&>(m_optimizer->param_groups()[0].options()).lr() = lr_now;
         }
 
+        torch::Tensor reward = torch::Tensor();
+        torch::Tensor done = torch::Tensor();
+
         // Policy Rollout Loop (where we run the environment with the current policy)
-        for (int step = 0; step < m_num_steps; step++) {
+        for (int64_t step = 0; step < m_num_steps; step++) {
 
             global_step += 1 * m_num_envs;
 
@@ -552,7 +574,10 @@ void PPO_MultiDiscrete::train() {
             m_logprobs[step] = logprob;
 
             // Step the environment(s) with the calculated action from agent
-            auto [next_obs, reward, done] = stepEnvs(action.cpu());
+            std::array<torch::Tensor, 3> tensors = stepEnvs(action.cpu());
+            next_obs = tensors[0];
+            reward = tensors[1];
+            done = tensors[2];
 
             // Gather obs, rewards, and dones into policy rollout buffer
             m_rewards[step] = reward.to(*m_device).view(-1);
@@ -561,7 +586,6 @@ void PPO_MultiDiscrete::train() {
 
         }
 
-        std::cout << "finished training loop" << std::endl;
 
         //////////////////////////    Learn with the batch of data collected    //////////////////////////
 
@@ -580,15 +604,15 @@ void PPO_MultiDiscrete::train() {
         std::vector<float>().swap(m_clipfracs); // Reset logging var
 
         // Optimizing the policy and value network
-        for (int epoch = 0; epoch < m_update_epochs; epoch++) {
+        for (int64_t epoch = 0; epoch < m_update_epochs; epoch++) {
 
             torch::Tensor b_inds = torch::randperm(m_batch_size); // We create shuffled indicies so that each 
                                                                   // minibatch contains an equal # of randomized items
 
             // Break up m_batch_size batch into mini batches for training
-            for (int start = 0; start < m_batch_size; start += m_minibatch_size) {
+            for (int64_t start = 0; start < m_batch_size; start += m_minibatch_size) {
 
-                int end = start + m_minibatch_size;
+                int64_t end = start + m_minibatch_size;
                 torch::Tensor mb_inds = b_inds.index({ torch::indexing::Slice(start, end) }); // Create a slice of the tensors to index
 
                 // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
@@ -607,7 +631,7 @@ void PPO_MultiDiscrete::train() {
                 // Get advantages and normalize them if it should
                 torch::Tensor mb_advantages = b_advantages.index({ mb_inds });
                 if (m_norm_adv) {
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8); // small scalar value to prevent div 0 err
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8f); // small scalar value to prevent div 0 err
                 }
 
                 // Clipped objective -- Policy loss
@@ -633,11 +657,11 @@ void PPO_MultiDiscrete::train() {
                         (v_clipped - b_returns.index({ mb_inds }));
 
                     torch::Tensor v_loss_max = torch::max(v_loss_unclipped, v_loss_clipped);
-                    v_loss = 0.5 * v_loss_max.mean();
+                    v_loss = 0.5f * v_loss_max.mean();
 
                 }
                 else { // Normally, value loss is implemented as a mse between the predicted values and emperical returns
-                    v_loss = 0.5 * ((newvalue - b_returns.index({ mb_inds })) * \
+                    v_loss = 0.5f * ((newvalue - b_returns.index({ mb_inds })) * \
                         (newvalue - b_returns.index({ mb_inds }))).mean();
                 }
 
@@ -676,7 +700,7 @@ void PPO_MultiDiscrete::train() {
         update_time = std::chrono::steady_clock::now();
 
         // Checkpoint save
-        if (update % 5 == 0) {
+        if (update % m_checkpoint_updates == 0) {
             std::filesystem::path modelSavePath = "./ModelCheckpoints/";
             std::filesystem::path optimizerSavePath = "./OptimizerCheckpoints/";
             std::filesystem::create_directories(modelSavePath);     // Create directories if they don't exist
@@ -714,29 +738,29 @@ void PPO_MultiDiscrete::train() {
 // window. This is meant to mimic and be practically
 // identical to the printout generated by SB2/SB3
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void PPO_MultiDiscrete::printPPOResults(int update, int global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
+void PPO_MultiDiscrete::printPPOResults(int64_t update, int64_t global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
                           torch::Tensor& approx_kl, torch::Tensor& entropy_loss, torch::Tensor& explained_var, torch::Tensor& loss,
                           torch::Tensor& pg_loss, torch::Tensor& v_loss) {
 
     // Log limited data for first update
     if (update == 1) {
         std::cout << "---------------------------------\n";
-        if (m_episode_lengths.size() != 0) {
+        if (!m_episode_lengths.empty()) {
             std::cout << "| rollout/           |          |\n" <<
                 std::setprecision(1) << std::defaultfloat <<
                 "|    ep_len_mean     | ";
-            printElement(std::accumulate(m_episode_lengths.begin(), m_episode_lengths.end(), 0) / m_episode_lengths.size(), 9);
+            printElement(static_cast<double>(std::accumulate(m_episode_lengths.begin(), m_episode_lengths.end(), static_cast<int64_t>(0))) / m_episode_lengths.size(), 9);
             std::cout << std::setprecision(5) <<
                 "|    ep_rew_mean     | ";
-            printElement(std::accumulate(m_episode_rewards.begin(), m_episode_rewards.end(), 0.0f) / m_episode_rewards.size(), 9);
+            printElement(std::accumulate(m_episode_rewards.begin(), m_episode_rewards.end(), 0.0f) / static_cast<float>(m_episode_rewards.size()), 9);
         }
         std::cout << "| time/              |          |\n" <<
             "|    fps             | ";
-        printElement(int(m_batch_size / (fps.count() / 1000.0)), 9);
+        printElement(static_cast<int64_t>(m_batch_size / (fps.count() / 1000.0)), 9);
         std::cout << "|    iterations      | ";
         printElement(update, 9);
         std::cout << "|    time_elapsed    | ";
-        printElement(int(time_elapsed.count() / 1000.0), 9);
+        printElement(static_cast<int64_t>(time_elapsed.count() / 1000.0), 9);
         std::cout << "|    total_timesteps | ";
         printElement(global_step, 9);
         std::cout << "---------------------------------" << std::endl << std::endl;
@@ -745,25 +769,25 @@ void PPO_MultiDiscrete::printPPOResults(int update, int global_step, std::chrono
 
     // Log all data when not first update
     else {
-        float currentLearningRate = float(static_cast<torch::optim::AdamWOptions&>(m_optimizer->param_groups()[0].options()).lr());
+        float currentLearningRate = static_cast<float>(static_cast<torch::optim::AdamWOptions&>(m_optimizer->param_groups()[0].options()).lr());
 
         std::cout << "------------------------------------------\n";
-        if (m_episode_lengths.size() != 0) {
+        if (!m_episode_lengths.empty()) {
             std::cout << "| rollout/                |              |\n" <<
                 std::setprecision(2) << std::fixed <<
                 "|    ep_len_mean          | ";
-            printElement(std::accumulate(m_episode_lengths.begin(), m_episode_lengths.end(), 0) / m_episode_lengths.size(), 13);
+            printElement(static_cast<double>(std::accumulate(m_episode_lengths.begin(), m_episode_lengths.end(), static_cast<int64_t>(0))) / m_episode_lengths.size(), 13);
             std::cout << std::setprecision(8) <<
                 "|    ep_rew_mean          | ";
-            printElement(std::accumulate(m_episode_rewards.begin(), m_episode_rewards.end(), 0.0f) / m_episode_rewards.size(), 13);
+            printElement(std::accumulate(m_episode_rewards.begin(), m_episode_rewards.end(), 0.0f) / static_cast<float>(m_episode_rewards.size()), 13);
         }
         std::cout << "| time/                   |              |\n" <<
             "|    fps                  | ";
-        printElement(int(m_batch_size / (fps.count() / 1000.0)), 13);
+        printElement(static_cast<int64_t>(m_batch_size / (fps.count() / 1000.0)), 13);
         std::cout << "|    iterations           | ";
         printElement(update, 13);
         std::cout << "|    time_elapsed         | ";
-        printElement(int(time_elapsed.count() / 1000.0), 13);
+        printElement(static_cast<int64_t>(time_elapsed.count() / 1000.0), 13);
         std::cout << "|    total_timesteps      | ";
         printElement(global_step, 13);
         std::cout << "| train/                  |              |\n" <<
@@ -771,7 +795,7 @@ void PPO_MultiDiscrete::printPPOResults(int update, int global_step, std::chrono
             "|    approx_kl            | ";
         printElement(approx_kl.item<float>(), 13);
         std::cout << "|    clip_fraction        | ";
-        printElement(getVectorMean(m_clipfracs), 13);
+        printElement(PPOUtils::getVectorMean(m_clipfracs), 13);
         std::cout << "|    clip_range           | ";
         printElement(m_clip_coef, 13);
         std::cout << "|    entropy_loss         | " << std::fixed;
@@ -794,14 +818,65 @@ void PPO_MultiDiscrete::printPPOResults(int update, int global_step, std::chrono
 
 }
 
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+// loadPolicyFromCheckpoint() -> Returns void
+// ---------------------------------
+// Attempts to load a checkpointed model and
+// optimizer if there is one in the bakkesmod data folder
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+void PPO_MultiDiscrete::loadPolicyFromCheckpoint() {
 
-float PPO_MultiDiscrete::getVectorMean(std::vector<float> vector) {
+    // Check if both dirs exist
+    std::filesystem::path modelSavePath =  "./ModelCheckpoints/";
+    std::filesystem::path optimSavePath = "./OptimizerCheckpoints/";
 
-    float runningTotal = 0.f;
-    for (int i = 0; i < vector.size(); i++) {
-        runningTotal += vector[i];
+    if (!std::filesystem::exists(modelSavePath) || !std::filesystem::exists(optimSavePath)) {
+        std::cout << "No previous model checkpoint found at " << modelSavePath << ", initializing new agent!" << std::endl;
+        return;
     }
 
-    return runningTotal / vector.size();
+    // Load agent from file (actor/critic network, logstd parameter)
+    if (std::distance(std::filesystem::directory_iterator(modelSavePath), std::filesystem::directory_iterator{}) == 0) {
+        std::cout << "No previous model checkpoint found at " << modelSavePath << ", initializing new agent!" << std::endl;
+    }
+    else {
+        std::string agentFileName;
+        std::filesystem::file_time_type agentWriteTime;
+        // directory_iterator can be iterated using a range-for loop
+        for (auto const& dir_entry : std::filesystem::directory_iterator{ modelSavePath })
+        {
+            if (std::filesystem::last_write_time(dir_entry) > agentWriteTime) {
+                agentFileName = dir_entry.path().string();
+                agentWriteTime = std::filesystem::last_write_time(dir_entry);
+            }
+        }
+        std::cout << "Loading model " << agentFileName << "..." << std::endl;
+        std::string global_step_string = PPOUtils::getLoadFromSteps(agentFileName, "PPO_Agent_");
+        // Update global step to previous 
+        m_global_step = (PPOUtils::isNumber(global_step_string)) ? static_cast<uint64_t>(stoi(global_step_string)) : 0;
+        std::cout << "Continuing training from step " << m_global_step << std::endl;
+        torch::load(m_agent, agentFileName);
+    }
+
+    // Load optimizer from file
+    if (std::distance(std::filesystem::directory_iterator(optimSavePath), std::filesystem::directory_iterator{}) == 0) {
+        std::cout << "No previous optimizer checkpoint found at " << modelSavePath << ", initializing new optimizer!" << std::endl;
+    }
+    else {
+        std::string optimFileName;
+        std::filesystem::file_time_type optimWriteTime;
+        // directory_iterator can be iterated using a range-for loop
+        for (auto const& dir_entry : std::filesystem::directory_iterator{ optimSavePath })
+        {
+            if (std::filesystem::last_write_time(dir_entry) > optimWriteTime) {
+                optimFileName = dir_entry.path().string();
+                optimWriteTime = std::filesystem::last_write_time(dir_entry);
+            }
+        }
+        std::cout << "Loading optimizer " << optimFileName << "..." << std::endl;
+        torch::load(*m_optimizer, optimFileName);
+    }
 
 }
+
+
