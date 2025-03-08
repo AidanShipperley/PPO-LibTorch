@@ -1,56 +1,72 @@
-# PPO-LibTorch <br> [![Ubuntu Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml) [![Windows Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml)
-PPO-LibTorch is a fully open-source and robust pure C++ implementation of [Proximal Policy Optimization](https://openai.com/index/openai-baselines-ppo/) converted from the wonderful [ICLR Blog Post by Huang, et al](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) using LibTorch, the official C++ frontend for PyTorch.
+# 🚀 PPO-LibTorch
+[![Ubuntu Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml)
+[![Windows Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml)
 
-# Table of Contents
-1. [Features](#features)
-2. [Requirements](#requirements)
-3. [Build From Source](#build)
+**PPO-LibTorch** is a robust, high-performance, fully open-source implementation of [**Proximal Policy Optimization (PPO)**](https://openai.com/index/openai-baselines-ppo/) built purely in C++ using [**LibTorch**](https://pytorch.org/cppdocs/frontend.html), the official C++ frontend for [**PyTorch**](https://pytorch.org/). PPO-LibTorch is a clean, efficient, and fully customizable PPO implementation optimized for performance-critical environments requiring low latency, high performance, or multithreaded environments where existing Python implementations may not be practical.
+
+Inspired by the insightful [ICLR PPO Implementation Blog by Huang, et al.](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/), PPO-LibTorch prioritizes clarity, performance, and usability.
+
+## ✨ Key Features
+
+### 🔥 Optimized for Performance
+- **Truly Parallel Environments:**
+    - Efficient vectorized environments are run and managed in parallel via a custom thread-pool
+    - Single-process architecture, removing the overhead of inter-process communication
+    - Ideal for applications requiring real-time inference and low latency
+- **CUDA Optimization Suite:**
+    - Leverages low-level C++, CUDA, and PyTorch access to maximize training speed
+    - TF32 Tensor Cores utilization on compatible GPUs for significant speedups (~7x speedup)
+    - cuDNN benchmark mode enabled for stable and efficient training (~5x speedup)
+    - Optionally, users can use mixed-precision for a potentially massive speedup at the cost of precision
+
+### 🌐 Easy Adaptation to Your Environment
+- **Highly Readable and Documented Code:**
+    - Clean, readable C++ implementation closely mirrors standard Python PPO implementations
+    - Extensive in-line documentation and clear naming conventions
+
+- **Fully Customizable Training via `.toml` Config:**
+    - All hyperparameters are customizable without recompiling
+    - Clear, documented, and user-friendly hyperparameter documentation on the wiki
+
+- **Example Environments Included:**
+    - Out-of-the-box CartPole environment implementation for immediate testing
+    - Easy-to-use API to create your own environments without altering the core PPO logic
+
+### 🛡️ Production-Ready Features
+- **Robust Error Handling:** Comprehensive exception handling for stable operation
+- **Automatic Checkpointing:** Save and resume training with automatic checkpoint management
+- **Multi-Platform Support:** Works on both Windows and Linux with continuous integration
+- **Custom Environment Framework:** Easily implement your own training environments
+- **Direct Integration:** Embed directly into game engines, robotics systems, or other C++ applications
+
+## 📖 Table of Contents
+1. [Requirements](#-requirements)
+2. [Build from Source](#building-from-source)
     1. [Windows](#windows)
     2. [Linux](#linux)
-    3. [Test your Build](#test-your-build)
-4. [Running The Example Environment](#running-the-example-environment)
-5. [Deploying Your Finished Model](#deploying-your-finished-model)
+    3. [Testing Your Build](#testing-your-build)
+4. [Running Example Environment (CartPole)](#️-running-example-environment-cartpole)
+5. [Documentation & Wiki](#documentation--wiki)
+6. [Contributions & Community](#contributions--community)
 
+## 📋 Requirements
 
-# Features
-PPO-LibTorch offers a few unique features:
+1. **OS:** A Windows or Linux machine
+2. **Build System:** [CMake](https://cmake.org/download/) (≥ 3.19)
+3. **LibTorch:** [LibTorch](https://pytorch.org/get-started/locally/) (≥ 2.6.0)
+&emsp;&emsp;&emsp;![PPO-LibTorch Diagram](Images/libtorch-download-helper.png)
+4. **CUDA Toolkit:** Optional but highly recommended for GPU acceleration ([CUDA ≥12.4](https://developer.nvidia.com/cuda-toolkit-archive))
+5. **cuDNN:** Optional for optimized GPU training ([cuDNN ≥9.7.0](https://developer.nvidia.com/cudnn-archive))
 
-1. ***A Custom Threadpool Supports PPO's Vectorized Architecture***
-    * Avoids the slowdowns associated with spinning up and down new threads.
-    * Allows the use of a single learner that collects samples and learns from multiple environments.
-    * Execution of these environments all originates from a single process requiring no IPC.
-      
-2. ***Fully Customizable and Explained Hyperparameters***
-    * Hyperparameters can be customized via a config file, no need to recompile for each change.
-    * Hyperparameters are clearly explained on this page's wiki.
-      
-3. ***Custom Environments***
-    * Example Environments are provided and can be copied/modified for your needs.
-    * No need for you to modify the existing PPO code.
-      
-4. ***Readable Implementation***
-    * This implementation follows the Python implementation as closely as possible.
-    * Almost everything is commented so you can tell what each portion is doing.
+> Note: You may select either CPU or CUDA, but CUDA is highly recommended for optimal performance. You must have an NVIDIA GPU to use CUDA.
 
-# Requirements
-1. A Windows or Linux machine
-2. [CMake](https://cmake.org/download/) (>=3.19), which is required to build this project
-3. [LibTorch](https://pytorch.org/get-started/locally/) (>=2.6.0)
-<p>&emsp;&emsp;&emsp;
-    <img src="https://user-images.githubusercontent.com/70974869/192141845-f631e6c8-d01e-44b8-8af3-38109f76c645.JPG" width="500">
-</p>
+## 🛠️ Building from Source
 
-4. [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit-archive) (>=12.4,<=12.6.3), matching the LibTorch version you chose (optional if you are only using CPU)
-5. [cuDNN](https://developer.nvidia.com/cudnn-archive) (>=9.7.0) (optional if you are only using CPU)
-
-
-> Note: You may select either CPU or CUDA, but CUDA is highly recommended. You must have an NVIDIA GPU in order to use CUDA.
-
-# Build
+## Build
 
 Below are the steps necessary to build this project on your machine.
 
-## Windows
+### Windows
 
 To build this project on Windows, it is recommended that you have Visual Studio 2019 or later and install C++ build tools through the visual studio installer. This is Microsoft's recommended method of accessing C++ build tools on Windows. This section will detail how to build assuming you have Visual Studio.
 
@@ -103,7 +119,7 @@ To build this project on Windows, it is recommended that you have Visual Studio 
     ```
 
 
-## Linux
+### Linux
 
 To build this project on Linux, you can follow these steps.
 
@@ -150,41 +166,44 @@ To build this project on Linux, you can follow these steps.
     cmake --build . --config Release
     ```
 
+### Testing Your Build
+After building, confirm CUDA/cuDNN support and benchmark your system:
 
-## Test your Build
-
-Included in the PPO build is a standalone executable that you can use to test that CUDA & cuDNN are working properly. You can run this to both confirm that there were no problems with the installation and see what kind of speedup you can expect on your machine, compare it's speed to others, etc.
-
-On Windows:
 ```bash
+# Windows
 .\CompilationChecker.exe
-```
 
-On Linux:
-```bash
+# Linux
 ./CompilationChecker
 ```
 
----
+## ▶️ Running Example Environment (CartPole)
 
-Congratulations! You can now move onto running the example environment.
-
-# Running The Example Environment
-
-Out of the box, running the built application will run the example environment which is my C++ recreation of [Cart Pole](https://www.gymlibrary.dev/environments/classic_control/cart_pole/). 
-
-On Windows:
+Out of the box, running the built application will run the example environment which is a C++ recreation of [Cart Pole](https://www.gymlibrary.dev/environments/classic_control/cart_pole/). 
 ```bash
+# Windows
 .\PPO.exe
-```
 
-On Linux:
-```bash
+# Linux
 ./PPO
 ```
 
-TODO: Add Argument Parsing and Experiment Logging
+## 📖 Documentation & Wiki
 
-# Deploying Your Finished Model
+Comprehensive documentation and explanations for each hyperparameter and function can be found in our wiki.
 
-TODO: Write out how to deploy model. It's not super intuitive so I just need to break each step down.
+## 🤝 Contributing
+
+Contributions, bug reports, and feature requests are highly welcome! Please open an issue or submit a pull request.
+
+## Acknowledgments
+
+- The [ICLR Blog Post by Huang, et al](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/) for the excellent PPO implementation details
+- [TOML++](https://github.com/marzer/tomlplusplus) for allowing easy `.toml` file support
+- The PyTorch team for LibTorch, the C++ frontend for PyTorch
+
+---
+
+⭐ **Star the repository** if you find it helpful or want to see its development continue!
+
+*Advanced argument parsing and experiment logging coming soon!*
