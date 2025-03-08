@@ -4,11 +4,10 @@ on:
   push:
     branches:
       - main
-      - Add-CuDNN-Support
   pull_request:
   workflow_dispatch:
 env:
-  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  # Customize the CMake build params
   BUILD_TYPE: Release
   LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-win-shared-with-deps-2.6.0%2Bcu126.zip
   CUDNN_URL: https://developer.download.nvidia.com/compute/cudnn/redist/cudnn/windows-x86_64/cudnn-windows-x86_64-9.7.1.26_cuda12-archive.zip

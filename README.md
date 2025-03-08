@@ -41,13 +41,14 @@ Inspired by the insightful [ICLR PPO Implementation Blog by Huang, et al.](https
 
 ## 📖 Table of Contents
 1. [Requirements](#-requirements)
-2. [Build from Source](#building-from-source)
+2. [Build from Source](#️-building-from-source)
     1. [Windows](#windows)
     2. [Linux](#linux)
     3. [Testing Your Build](#testing-your-build)
 4. [Running Example Environment (CartPole)](#️-running-example-environment-cartpole)
-5. [Documentation & Wiki](#documentation--wiki)
-6. [Contributions & Community](#contributions--community)
+5. [Documentation & Wiki](#-documentation--wiki)
+6. [Contributing](#-contributing)
+7. [Acknowledgments](#acknowledgments)
 
 ## 📋 Requirements
 
