@@ -255,18 +255,10 @@ void PPO_Discrete::getArgs() {
 }
 
 // Action logic (no_grad scope)
-std::vector<torch::Tensor> PPO_Discrete::computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& input_action)
-{
+AgentOutput PPO_Discrete::computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& input_action) const {
 
     torch::NoGradGuard no_grad;
-
-    std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(next_obs, input_action);
-
-    return { actionsAndValues[0],
-            actionsAndValues[1],
-            actionsAndValues[2],
-            actionsAndValues[3],
-            actionsAndValues[3].flatten() };
+    return m_agent->getActionAndValueDiscrete(next_obs);
 
 }
 
@@ -279,7 +271,7 @@ std::vector<torch::Tensor> PPO_Discrete::computeActionLogic(const torch::Tensor&
 // Estimation(GAE) algorithm or a regular advantage calculation, 
 // depending on whether the m_use_gae variable is true or false.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) {
+std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) const {
 
     torch::NoGradGuard no_grad;
 
@@ -370,34 +362,42 @@ torch::Tensor PPO_Discrete::getApproxKLAndClippedObj(const torch::Tensor& ratio,
 // observation tensor for each environment and resetting each 
 // one. The observations are stored in a tensor and returned.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-torch::Tensor PPO_Discrete::initEnvs() {
+torch::Tensor PPO_Discrete::initEnvs() const {
+
+    // Runtime obs size check at init
+    std::vector<float> test_obs = m_envs[0]->reset();
+    
+    if (test_obs.size() != m_obs_size) {
+        std::string err_msg = "The environment returned an observation of size " + std::to_string(test_obs.size()) +
+            ", but your config defined the expected observation size to be " + std::to_string(m_obs_size) + ".\n" +
+            "Have you properly defined your PPOConfig.toml file for your environment?";
+        throw std::runtime_error(err_msg);
+    }
 
     // Construct initial_obs
     torch::Tensor obs = torch::zeros({ m_num_envs, m_obs_size }, torch::TensorOptions(*m_device).dtype(torch::kFloat32));
 
     // Put data into initial obs for each agent
     for (int64_t i = 0; i < m_num_envs; i++) {
-
-        // // Add job to pool to get initial observation from env
+        // Add job to pool to get initial observation from env
         m_threadPool->queueJob([this, i, &obs]() mutable {
-
+ 
             // Create empty tensor observation
             torch::Tensor tensor_obs = torch::zeros(m_obs_size, torch::kFloat32);
 
             // Reset the environment and get a float vector of the state
             std::vector<float> vec_obs = m_envs[i]->reset();
-
-            // Copy float vector to tensor (Note: This is by far the fastest method to convert float vectors to tensors)
+                
+            // Copy vector data to tensor
             std::memcpy(tensor_obs.data_ptr(), vec_obs.data(), sizeof(float) * tensor_obs.numel());
             obs[i] = tensor_obs;
-
+            
         });
-
     }
 
     // Wait for all threads to finish
     m_threadPool->waitForJobsToFinish();
-
+    
     return obs;
 }
 
@@ -531,13 +531,10 @@ void PPO_Discrete::train() {
 
             // During rollouts, we don't need to cache any gradients, so we compute
                     // actions, logprobs, and values under torch's no_grad context
-            std::vector<torch::Tensor> result = computeActionLogic(next_obs, torch::Tensor());
+            auto [action, logprob, _, value] = computeActionLogic(next_obs);
 
-            torch::Tensor action = result[0].unsqueeze(1);
-            torch::Tensor logprob = result[1];
-            torch::Tensor value = result[3];
-            m_values[step] = result[4];
-            m_actions[step] = action;
+            m_values[step] = value.flatten();
+            m_actions[step] = action.unsqueeze(static_cast<int64_t>(1));
             m_logprobs[step] = logprob;
 
             // Step the environment(s) with the calculated action from agent
@@ -582,13 +579,13 @@ void PPO_Discrete::train() {
                 torch::Tensor mb_inds = b_inds.index({ torch::indexing::Slice(start, end) }); // Create a slice of the tensors to index
 
                 // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
-                std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(
+                auto [_, newlogprob, entropy, newvalue] = m_agent->getActionAndValueDiscrete(
                     b_obs.index({ mb_inds }),
                     b_actions.to(torch::kLong).index({ mb_inds })
                 );
 
                 // Logarithmic subtraction between the new log probabilities - old log probabilities associated w/ the actions in the policy rollout phase
-                torch::Tensor logratio = actionsAndValues[1] - b_logprobs.index({ mb_inds });
+                torch::Tensor logratio = newlogprob - b_logprobs.index({ mb_inds });
                 torch::Tensor ratio = logratio.exp();
 
                 approx_kl = getApproxKLAndClippedObj(ratio, logratio);
@@ -606,7 +603,7 @@ void PPO_Discrete::train() {
                                                                  // equivalent to min of positives like in paper
 
                 // Clipping value loss
-                torch::Tensor newvalue = actionsAndValues[3].view(-1);
+                newvalue = newvalue.view(-1);
                 if (m_clip_vloss) { // Original implementation uses clipping of value loss
 
                     torch::Tensor v_loss_unclipped = (newvalue - b_returns.index({ mb_inds })) * \
@@ -631,7 +628,7 @@ void PPO_Discrete::train() {
                 }
 
                 // Entropy loss -- measure of chaos in action probability distribution
-                entropy_loss = actionsAndValues[2].mean();
+                entropy_loss = entropy.mean();
 
                 // Combine losses to get final loss value
                 loss =                  (pg_loss)       -     (m_ent_coef * entropy_loss)     +       (v_loss * m_vf_coef);

@@ -88,7 +88,7 @@ Agent::~Agent() {
 // orthogonal initialization on the layer's weight 
 // and the constant initialization on the layer's bias
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-torch::nn::Linear Agent::ppoLayerInit(torch::nn::Linear layer, double stdDev, const double bias_const) {
+torch::nn::Linear Agent::ppoLayerInit(torch::nn::Linear layer, const double stdDev, const double bias_const) {
 
     torch::NoGradGuard noGrad;
     torch::nn::init::orthogonal_(layer->weight, stdDev);
@@ -104,7 +104,7 @@ torch::nn::Linear Agent::ppoLayerInit(torch::nn::Linear layer, double stdDev, co
 // Implement critic's inference by passing obs to 
 // the critic's network
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-torch::Tensor Agent::getValue(torch::Tensor x) {
+torch::Tensor Agent::getValue(const torch::Tensor& x) {
     return m_Critic->forward(x);
 }
 
@@ -114,7 +114,7 @@ torch::Tensor Agent::getValue(torch::Tensor x) {
 // Implement actors inference bundled with critic's 
 // inference.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::vector<torch::Tensor> Agent::getActionAndValueDiscrete(torch::Tensor x, torch::Tensor action) {
+AgentOutput Agent::getActionAndValueDiscrete(const torch::Tensor& x, torch::Tensor action) {
 
     torch::Tensor logits = m_Actor->forward(x);
     Categorical categorical = Categorical(logits, m_device);
@@ -134,7 +134,7 @@ std::vector<torch::Tensor> Agent::getActionAndValueDiscrete(torch::Tensor x, tor
 // inference. This also contains the logic to handle
 // invalid action masking.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 4> Agent::getActionAndValueMasked(torch::Tensor x, const torch::Tensor& mask, torch::Tensor action) {
+std::array<torch::Tensor, 4> Agent::getActionAndValueMasked(const torch::Tensor& x, const torch::Tensor& mask, torch::Tensor action) {
 
     torch::Tensor logits = m_Actor->forward(x);
     std::vector<torch::Tensor> split_logits = torch::split(logits, m_actionSpace, 1);

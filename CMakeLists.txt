@@ -80,8 +80,8 @@ endif()
 add_executable (PPO 
     "PPO_Discrete.cpp"
     "PPO_Discrete.h"
-    "PPO_MultiDiscrete.cpp"
-    "PPO_MultiDiscrete.h"
+    #"PPO_MultiDiscrete.cpp"
+    #"PPO_MultiDiscrete.h"
     "driver.cpp"
     "ThreadPool.h"
     "ThreadPool.cpp"

@@ -31,15 +31,15 @@ public:
     void getArgs();
     void loadPolicyFromCheckpoint();
 
-    // ALGO LOGIC 
-    std::vector<torch::Tensor> computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& action);
-    std::array<torch::Tensor, 2> calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done);
+    // ALGO LOGIC
+    AgentOutput computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& action = torch::Tensor()) const;
+    std::array<torch::Tensor, 2> calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) const;
     torch::Tensor getApproxKLAndClippedObj(const torch::Tensor& ratio, const torch::Tensor& logratio);
 
     void train();
 
     // Controlling Environments
-    torch::Tensor initEnvs();
+    torch::Tensor initEnvs() const;
     std::array<torch::Tensor, 3> stepEnvs(const torch::Tensor& action);
 
     // Printing results to console

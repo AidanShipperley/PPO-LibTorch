@@ -1,6 +1,12 @@
-# 🚀 PPO-LibTorch
-[![Ubuntu Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml)
-[![Windows Build (Torch 2.6.0|CUDA 12.6.3)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml/badge.svg)](https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml)
+<h1 align="center">PPO-LibTorch 🚀</h1>
+<p align="center">
+<b>A high-performance C++ implementation of <a href="https://openai.com/index/openai-baselines-ppo/"><b>Proximal Policy Optimization (PPO)</b></a></b>
+</p>
+
+<p align="center">
+    <a href="https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml" rel="nofollow"><img alt="Ubuntu Build (Torch 2.6.0|CUDA 12.6.3)" src="https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/ubuntu-build-260-126.yml/badge.svg" style="max-width:100%;"></a>
+    <a href="https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml" rel="nofollow"><img alt="Windows Build (Torch 2.6.0|CUDA 12.6.3)" src="https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml/badge.svg" style="max-width:100%;"></a>
+</p>
 
 **PPO-LibTorch** is a robust, high-performance, fully open-source implementation of [**Proximal Policy Optimization (PPO)**](https://openai.com/index/openai-baselines-ppo/) built purely in C++ using [**LibTorch**](https://pytorch.org/cppdocs/frontend.html), the official C++ frontend for [**PyTorch**](https://pytorch.org/). PPO-LibTorch is a clean, efficient, and fully customizable PPO implementation optimized for performance-critical environments requiring low latency, high performance, or multithreaded environments where existing Python implementations may not be practical.
 
@@ -188,6 +194,8 @@ Out of the box, running the built application will run the example environment w
 # Linux
 ./PPO
 ```
+
+Ensure that you have 
 
 ## 📖 Documentation & Wiki
 
