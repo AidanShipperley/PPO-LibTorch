@@ -4,6 +4,8 @@
 #include <iostream>
 #include <filesystem> // create dirs to save models, search for args
 #include <string>
+#include <vector>
+#include <fstream>
 #include <algorithm> // std::fill
 #include <execution> // std::execution::par
 #include <chrono> // Everything to keep track of timing
@@ -11,6 +13,7 @@
 #include <numeric> // std::accumulate
 #include <deque> // episode lengths and rewards logging
 #include <torch/torch.h>
+#include "third_party/tomlplusplus/toml.hpp"
 
 #include "Agent.h"
 #include "ThreadPool.h"
@@ -28,23 +31,22 @@ public:
     void loadPolicyFromCheckpoint();
 
     // ALGO LOGIC 
-    std::vector<torch::Tensor> computeActionLogic(const torch::Tensor& next_obs, \
-        const torch::Tensor& action_mask, const torch::Tensor& action);
-    std::array<torch::Tensor, 2> calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done);
+    AgentOutput computeActionLogic(const torch::Tensor& next_obs, \
+        const torch::Tensor& action_mask, const torch::Tensor& action = torch::Tensor());
+    std::array<torch::Tensor, 2> calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) const;
     torch::Tensor getApproxKLAndClippedObj(const torch::Tensor& ratio, const torch::Tensor& logratio);
 
     void train();
 
     // Controlling Environments
     torch::Tensor initEnvs(const torch::Tensor& action_mask);
-    std::array<torch::Tensor, 3> stepEnvs(const torch::Tensor& action);
+    std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> stepEnvs(const torch::Tensor& action);
 
     // Printing results to console
     void printPPOResults(int64_t update, int64_t global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
                          torch::Tensor& approx_kl, torch::Tensor& entropy_loss, torch::Tensor& explained_var, torch::Tensor& loss,
                          torch::Tensor& pg_loss, torch::Tensor& v_loss);
     template<typename T> void printElement(T t, const int& width);
-    float getVectorMean(std::vector<float> vector);
 
     // Hyperparameters
     int64_t                                 m_obs_size;
@@ -97,8 +99,7 @@ public:
     // Logging variables
     //std::shared_ptr<TensorBoardLogger>    m_logger;
     std::vector<float>                      m_clipfracs;
-    std::deque<int64_t>                     m_episode_lengths;
-    std::deque<float>                       m_episode_rewards;
+    std::unique_ptr<CircularBuffer>         m_episode_stats;
     uint64_t                                m_global_step;
 
     // Thread pool

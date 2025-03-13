@@ -134,7 +134,7 @@ AgentOutput Agent::getActionAndValueDiscrete(const torch::Tensor& x, torch::Tens
 // inference. This also contains the logic to handle
 // invalid action masking.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 4> Agent::getActionAndValueMasked(const torch::Tensor& x, const torch::Tensor& mask, torch::Tensor action) {
+AgentOutput Agent::getActionAndValueMasked(const torch::Tensor& x, const torch::Tensor& mask, torch::Tensor action) {
 
     torch::Tensor logits = m_Actor->forward(x);
     std::vector<torch::Tensor> split_logits = torch::split(logits, m_actionSpace, 1);

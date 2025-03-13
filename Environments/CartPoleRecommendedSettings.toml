@@ -8,7 +8,7 @@ max_episode_steps = 500    # Maximum steps per episode
 
 [general]
 # General training parameters
-seed = 1                   # Random seed
+seed = 2                   # Random seed
 total_timesteps = 100000   # Total timesteps to run
 use_cuda = false           # Whether to use CUDA
 torch_deterministic = true # Make PyTorch operations deterministic

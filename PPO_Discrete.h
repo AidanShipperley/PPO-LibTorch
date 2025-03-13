@@ -40,7 +40,7 @@ public:
 
     // Controlling Environments
     torch::Tensor initEnvs() const;
-    std::array<torch::Tensor, 3> stepEnvs(const torch::Tensor& action);
+    std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> stepEnvs(const torch::Tensor& action);
 
     // Printing results to console
     void printPPOResults(int64_t update, int64_t global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,

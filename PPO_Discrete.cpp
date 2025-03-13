@@ -380,7 +380,7 @@ torch::Tensor PPO_Discrete::initEnvs() const {
     // Put data into initial obs for each agent
     for (int64_t i = 0; i < m_num_envs; i++) {
         // Add job to pool to get initial observation from env
-        m_threadPool->queueJob([this, i, &obs]() mutable {
+        m_threadPool->queueJob([this, i, &obs]() {
  
             // Create empty tensor observation
             torch::Tensor tensor_obs = torch::zeros(m_obs_size, torch::kFloat32);
@@ -402,7 +402,7 @@ torch::Tensor PPO_Discrete::initEnvs() const {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// stepEnvs() -> std::array<torch::Tensor, 3>
+// stepEnvs() -> std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
 // -------------------------
 // This function steps through each environment with the given action. 
 // It creates new tensors for observations, rewards, and done statuses, 
@@ -410,7 +410,7 @@ torch::Tensor PPO_Discrete::initEnvs() const {
 // if the environment has terminated. If it has, it resets the 
 // environment and logs the reward and length of the episode.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action) {
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> PPO_Discrete::stepEnvs(const torch::Tensor& action) {
     
     // Construct initial vars
     torch::Tensor obs = torch::zeros({ m_num_envs, m_obs_size }, torch::TensorOptions(*m_device).dtype(torch::kFloat32));
@@ -491,18 +491,18 @@ void PPO_Discrete::train() {
     uint64_t global_step = m_global_step;
     std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point update_time = std::chrono::steady_clock::now();
-    torch::Tensor next_obs = torch::zeros({ m_num_envs, m_obs_size }, torch::kFloat32).to(*m_device);
-    torch::Tensor next_done = torch::zeros({ m_num_envs }).to(*m_device);
+    torch::Tensor next_obs = torch::zeros({ m_num_envs, m_obs_size }, torch::device(*m_device));
+    torch::Tensor next_done = torch::zeros({ m_num_envs }, torch::device(*m_device));
     int64_t num_updates = static_cast<int64_t>((m_total_timesteps - global_step) / m_batch_size);
 
     // Setup environments
     next_obs = initEnvs();
     
     //    Variables required for scope in C++   //
-    torch::Tensor v_loss = torch::empty(1).requires_grad_();
-    torch::Tensor pg_loss = torch::empty(1).requires_grad_();
-    torch::Tensor entropy_loss = torch::empty(1).requires_grad_();
-    torch::Tensor loss = torch::empty(1).requires_grad_();
+    torch::Tensor v_loss = torch::empty(1, torch::requires_grad());
+    torch::Tensor pg_loss = torch::empty(1, torch::requires_grad());
+    torch::Tensor entropy_loss = torch::empty(1, torch::requires_grad());
+    torch::Tensor loss = torch::empty(1, torch::requires_grad());
     torch::Tensor approx_kl = torch::Tensor();
     torch::Tensor explained_var = torch::Tensor();
     //////////////////////////////////////////////
@@ -525,7 +525,7 @@ void PPO_Discrete::train() {
 
             global_step += 1 * m_num_envs;
 
-            // Start by assigning previous gathered next_obs and next_done
+            // Start by storing previous gathered next_obs and next_done in rollout buffer
             m_obs[step] = next_obs;
             m_dones[step] = next_done;
 
@@ -538,10 +538,7 @@ void PPO_Discrete::train() {
             m_logprobs[step] = logprob;
 
             // Step the environment(s) with the calculated action from agent
-            std::array<torch::Tensor, 3> tensors = stepEnvs(action.cpu());
-            next_obs = tensors[0];
-            reward = tensors[1];
-            done = tensors[2];
+            std::tie(next_obs, reward, done) = stepEnvs(action.cpu());
 
             // Gather obs, rewards, and dones into policy rollout buffer
             m_rewards[step] = reward.to(*m_device).view(-1);
