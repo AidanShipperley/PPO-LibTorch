@@ -107,24 +107,15 @@ To build this project on Windows, it is recommended that you have Visual Studio 
     ```
 
 4. Configure the x64 Release build by running the following.
-    1. Set `-DCUDAToolkit_ROOT` to the root directory of your CUDA Toolkit. On Windows, this should be located at `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\vXX.x\`
-    2. Set `-DCMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing your `\bin` and `\lib` folders.
-    ```bash
-    cmake --preset x64-release \
-    -DCUDAToolkit_ROOT="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6" \
-    -DCMAKE_PREFIX_PATH="D:\a\PPO-LibTorch\PPO-LibTorch\libtorch\libtorch"
-    ```
 
-5. Navigate into the release build directory:
-    ```bash
-    cd .\build\x64-release\
-    ```
+    > Usage: `.\build-windows.bat CUDA_PATH CMAKE_PREFIX_PATH [delete]`
+    1. Set `CUDA_PATH` to the root directory of your CUDA Toolkit. On Windows, this should be located at `C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\vXX.x\`
+    2. Set `CMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing your `\bin` and `\lib` folders.
+    3. Optionally, pass `delete` to clean up the existing build directory. Ensure you save your model checkpoints or config files as this deletes everything in the build directory.
 
-6. Compile the release binary and link the executable:
     ```bash
-    cmake --build . --config Release
+    .\build-windows.bat "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6" "D:\a\PPO-LibTorch\PPO-LibTorch\libtorch\libtorch" delete
     ```
-
 
 ### Linux
 
@@ -155,22 +146,13 @@ To build this project on Linux, you can follow these steps.
     ```
 
 4. Configure the Linux Release build by running the following.
-    1. Set `-DCUDAToolkit_ROOT` to the root directory of your CUDA Toolkit. On Ubuntu, this should be located at `/usr/local/cuda-XX.x/`
-    2. Set `-DCMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing your `/bin` and `/lib64` folders.
-    ```bash
-    cmake --preset linux-release \
-    -DCUDAToolkit_ROOT=/usr/local/cuda-12.6 \
-    -DCMAKE_PREFIX_PATH=/home/runner/work/PPO-LibTorch/PPO-LibTorch/libtorch/libtorch
-    ```
 
-5. Navigate into the release build directory:
-    ```bash
-    cd ./build/linux-release/
-    ```
+    > Usage: `./build-linux.sh CUDA_PATH CMAKE_PREFIX_PATH [delete]`
+    1. Set `CUDA_PATH` to the root directory of your CUDA Toolkit. On Ubuntu, this should be located at `/usr/local/cuda-XX.x/`
+    2. Set `CMAKE_PREFIX_PATH` to the root directory of your Libtorch installation. This should be the parent directory containing your `/bin` and `/lib64` folders.
 
-6. Compile the release binary and link the executable:
     ```bash
-    cmake --build . --config Release
+    ./build-linux.sh "/usr/local/cuda-12.6" "/home/runner/work/PPO-LibTorch/PPO-LibTorch/libtorch/libtorch" delete
     ```
 
 ### Testing Your Build

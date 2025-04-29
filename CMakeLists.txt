@@ -20,6 +20,8 @@ endif()
 
 # Configure project first with CXX language
 project("PPO" LANGUAGES CXX)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Utils)
 
 # Check if LIBTORCH_PATH is provided
 if("${LIBTORCH_PATH}" STREQUAL "")
@@ -77,27 +79,28 @@ if(CMAKE_CUDA_COMPILER)
 endif()
 
 # Add source to this project's executable.
-add_executable (PPO 
-    "PPO_Discrete.cpp"
-    "PPO_Discrete.h"
-    "PPO_MultiDiscrete.cpp"
-    "PPO_MultiDiscrete.h"
-    "driver.cpp"
-    "ThreadPool.h"
-    "ThreadPool.cpp"
-    "Agent.h"
-    "Agent.cpp"
+add_executable (PPO
+    "PPO/Agent.h"
+    "PPO/Agent.cpp"
+    "PPO/PPO_Discrete.h"
+    "PPO/PPO_Discrete.cpp"
+    "PPO/PPO_MultiDiscrete.h"
+    "PPO/PPO_MultiDiscrete.cpp"
+    "Distributions/Categorical.h"
+    "Distributions/Categorical.cpp"
     "Distributions/CategoricalMasked.h"
     "Distributions/CategoricalMasked.cpp"
     "Environments/MountainCar.h"
     "Environments/MountainCar.cpp"
-    "Distributions/Categorical.h"
-    "Distributions/Categorical.cpp"
     "Environments/CartPole.h"
     "Environments/CartPole.cpp"
     "third_party/tomlplusplus/toml.hpp"
-    "Utils.h"
-    "Utils.cpp")
+    "Utils/ThreadPool.h"
+    "Utils/ThreadPool.cpp"
+    "Utils/Utils.h"
+    "Utils/Utils.cpp"
+    "driver.cpp"
+)
 
 # Add the CUDA checker executable
 add_executable(CompilationChecker "Testing/check_compilation.cpp")

@@ -3,45 +3,57 @@
 # Check if required arguments are provided
 if [ -z "$1" ]; then
     echo "Error: Missing CUDA Toolkit path"
-    echo "Usage: $0 <CUDA_Toolkit_Path> <CMAKE_PREFIX_PATH>"
+    echo "Usage: ./build-linux.sh CUDA_PATH CMAKE_PREFIX_PATH [delete]"
     exit 1
 fi
 
 if [ -z "$2" ]; then
     echo "Error: Missing CMAKE_PREFIX_PATH"
-    echo "Usage: $0 <CUDA_Toolkit_Path> <CMAKE_PREFIX_PATH>"
+    echo "Usage: ./build-linux.sh CUDA_PATH CMAKE_PREFIX_PATH [delete]"
     exit 1
 fi
 
 CUDA_PATH="$1"
 CMAKE_PREFIX_PATH="$2"
+DELETE_BUILD=0
 
-# Delete the build directory if it exists
+# Check if we should delete the build directory
+if [ "$3" = "delete" ]; then
+    DELETE_BUILD=1
+fi
+
+# Check if build directory exists
 if [ -d "build" ]; then
-    echo "Removing existing build directory..."
-    rm -rf build
-    if [ $? -ne 0 ]; then
-        echo "Failed to remove build directory. Exiting."
+    if [ $DELETE_BUILD -eq 1 ]; then
+        echo "Removing existing build directory..."
+        rm -rf build
+        if [ $? -ne 0 ]; then
+            echo "Failed to remove build directory."
+            exit 1
+        fi
+        echo "Build directory removed."
+    else
+        echo "ERROR: Build directory exists! Add 'delete' parameter to remove it."
+        echo "Example: ./build-linux.sh CUDA_PATH CMAKE_PREFIX_PATH delete"
         exit 1
     fi
-    echo "Build directory removed successfully."
 else
-    echo "No existing build directory found."
+    echo "No existing build directory."
 fi
 
 # Create build directory
-echo "Creating new build directory..."
+echo "Creating build directory..."
 mkdir -p build
 if [ $? -ne 0 ]; then
-    echo "Failed to create build directory. Exiting."
+    echo "Failed to create build directory."
     exit 1
 fi
 
 # Run CMake configure with provided arguments
-echo "Configuring project with CMake..."
+echo "Running CMake configuration..."
 cmake --preset linux-release -DCUDAToolkit_ROOT="${CUDA_PATH}" -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
 if [ $? -ne 0 ]; then
-    echo "CMake configuration failed. Exiting."
+    echo "CMake configuration failed."
     exit 1
 fi
 
@@ -49,7 +61,7 @@ fi
 echo "Changing to build directory..."
 cd ./build/linux-release/
 if [ $? -ne 0 ]; then
-    echo "Failed to change to build directory. Exiting."
+    echo "Failed to change directory."
     exit 1
 fi
 

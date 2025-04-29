@@ -2,7 +2,7 @@
 //
 
 //#include "PPO_MultiDiscrete.h"
-#include "PPO_Discrete.h"
+#include "PPO/PPO_Discrete.h"
 
 int main()
 {
