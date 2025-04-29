@@ -6,7 +6,7 @@ PPO_Discrete::PPO_Discrete() {
     // First initialize all PPO hyperparameters to their defaults
     m_obs_size = 2;
     m_action_size = 1;
-    m_learning_rate = 0.0003;
+    m_learning_rate = 0.0003f;
     m_seed = 1;
     m_total_timesteps = 100000;
     m_use_cuda = true;
@@ -28,8 +28,8 @@ PPO_Discrete::PPO_Discrete() {
     m_checkpoint_updates = 5;
     m_max_episode_steps = 500;
 
-    m_batch_size = int(m_num_envs * m_num_steps);
-    m_minibatch_size = int(m_batch_size / m_num_minibatches);
+    m_batch_size = static_cast<int64_t>(m_num_envs * m_num_steps);
+    m_minibatch_size = static_cast<int64_t>(m_batch_size / m_num_minibatches);
 
     m_global_step = 0;
 
@@ -40,7 +40,7 @@ PPO_Discrete::PPO_Discrete() {
     m_threadPool = std::make_shared<ThreadPool>(std::thread::hardware_concurrency());
 
     // Seed randomization
-    srand(m_seed);
+    srand(static_cast<unsigned int>(m_seed));
     torch::manual_seed(m_seed);
     at::globalContext().setDeterministicCuDNN(m_torch_deterministic ? true : false);
     // https://docs.nvidia.com/cuda/cublas/index.html#cublasApi_reproducibility
@@ -48,7 +48,7 @@ PPO_Discrete::PPO_Discrete() {
 
     // Global Speedups
     // Enable optimized cuDNN algorithms, works best with non-fluxuating input size, perfect for RL
-    // https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936
+    // https://discuss.pytorch.org/t/what-does-torch-backends-cudnn-benchmark-do/5936/3
     at::globalContext().setBenchmarkCuDNN(true);
 
     // Use float32 tensor cores on Ampere GPUs, less precision for ~7x speedup
@@ -56,8 +56,9 @@ PPO_Discrete::PPO_Discrete() {
     at::globalContext().setAllowTF32CuBLAS(true);
     at::globalContext().setAllowTF32CuDNN(true);
 
-    // Used FP16 mixed precision
+    // Allow FP16 mixed precision
     // https://pytorch.org/docs/stable/notes/cuda.html#reduced-precision-reduction-in-fp16-gemms
+    // NOTE: This will only speedup code if we use torch::kHalf, which we don't atm. In the future we can do this optionally
     at::globalContext().setAllowFP16ReductionCuBLAS(true);
 
     // Initialize device
@@ -73,14 +74,14 @@ PPO_Discrete::PPO_Discrete() {
 
     // Initialize Adam optimizer with respect to agents parameters
     m_optimizer = std::make_shared<torch::optim::AdamW>(
-        m_agent->parameters(), torch::optim::AdamWOptions(m_learning_rate).eps(1e-5)
+        m_agent->parameters(), torch::optim::AdamWOptions(m_learning_rate).eps(1e-5f)
     );
 
     // If any checkpoints exist, load them and resume previous training
     loadPolicyFromCheckpoint();
 
     // Initialize Environments
-    for (int i = 0; i < m_num_envs; i++) {
+    for (int64_t i = 0; i < m_num_envs; i++) {
         m_envs.push_back(std::make_shared<CartPole>(m_seed));
     }
     std::cout << "made envs" << std::endl;
@@ -94,6 +95,7 @@ PPO_Discrete::PPO_Discrete() {
     m_values = torch::zeros({ m_num_steps, m_num_envs }).to(*m_device);
 
     // Init episode length/reward loggers
+    m_episode_stats = std::make_unique<CircularBuffer>(static_cast<size_t>(100)); // SB3 maintains a 100 episode info buffer, regardless of # agents
 
 }
 
@@ -103,177 +105,160 @@ PPO_Discrete::~PPO_Discrete() {
 }
 
 void PPO_Discrete::getArgs() {
+    std::string configFilePath = "./PPOConfig.toml";
 
-    std::vector<std::string> hyperParamStrings = {
-            "obs_size","action_size","learning_rate","seed","total_timesteps","use_cuda","torch_deterministic","num_envs",\
-                "num_steps","anneal_lr","use_gae","gamma","gae_lambda","num_minibatches","update_epochs","norm_adv","clip_coef",\
-                    "clip_vloss","ent_coef","vf_coef","max_grad_norm", "checkpoint_updates", "max_episode_steps"
-    };
-
-    std::string configFilePath = "./PPOConfig.txt";
-
-    // Warn user if config params not found
+    // Warn user if config file not found
     if (!std::filesystem::exists(configFilePath)) {
-        std::cout << "Could not find " << configFilePath.c_str() << " file." << \
+        std::cout << "Could not find " << configFilePath.c_str() << " file." <<
             "\nUsing default PPO hyperparameters" << std::endl;
+        return;
     }
-    else {
 
-        std::ifstream configFile(configFilePath);
-        std::string configText = "";
+    try {
+        // Parse TOML file
+        auto config = toml::parse_file(configFilePath);
 
-        // Loop through whole file for specific hyperparameters
-        while (getline(configFile, configText)) {
-            configText = PPOUtils::formatString(configText); // Remove whitespaces and makes lowercase
-            // Check to make sure hyperparameter is valid
-            bool identified = false;
-            for (int i = 0; i < hyperParamStrings.size(); i++) {
-                if (hyperParamStrings.at(i) == configText.substr(0, configText.find("="))) {
-                    identified = true;
-
-                    if (hyperParamStrings.at(i) == "obs_size") {
-                        m_obs_size = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file obs_size = " << m_obs_size << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "action_size") {
-                        m_action_size = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file action_size = " << m_action_size << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "learning_rate") {
-                        m_learning_rate = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file learning_rate = " << m_learning_rate << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "seed") {
-                        m_seed = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file seed = " << m_seed << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "total_timesteps") {
-                        m_total_timesteps = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file total_timesteps = " << m_total_timesteps << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "use_cuda") {
-                        m_use_cuda = (configText.substr(configText.find("=") + 1) == "true") ? true : false;
-                        std::cout << "Using config file use_cuda = " << m_use_cuda << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "torch_deterministic") {
-                        m_torch_deterministic = (configText.substr(configText.find("=") + 1) == "true") ? true : false;
-                        std::cout << "Using config file torch_deterministic = " << m_torch_deterministic << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "num_envs") {
-                        m_num_envs = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file num_envs = " << m_num_envs << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "num_steps") {
-                        m_num_steps = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file num_steps = " << m_num_steps << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "anneal_lr") {
-                        m_anneal_lr = (configText.substr(configText.find("=") + 1) == "true") ? true : false;
-                        std::cout << "Using config file anneal_lr = " << m_anneal_lr << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "use_gae") {
-                        m_use_gae = (configText.substr(configText.find("=") + 1) == "true") ? true : false;
-                        std::cout << "Using config file use_gae = " << m_use_gae << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "m_gamma") {
-                        m_gamma = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file gamma = " << m_gamma << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "m_gae_lambda") {
-                        m_gae_lambda = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file gae_lambda = " << m_gae_lambda << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "num_minibatches") {
-                        m_num_minibatches = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file num_minibatches = " << m_num_minibatches << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "update_epochs") {
-                        m_update_epochs = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file update_epochs = " << m_update_epochs << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "norm_adv") {
-                        m_norm_adv = (configText.substr(configText.find("=") + 1) == "true") ? true : false;
-                        std::cout << "Using config file norm_adv = " << m_norm_adv << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "clip_coef") {
-                        m_clip_coef = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file clip_coef = " << m_clip_coef << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "clip_vloss") {
-                        m_clip_vloss = (configText.substr(configText.find("=") + 1) == "true") ? true : false;
-                        std::cout << "Using config file clip_vloss = " << m_clip_vloss << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "ent_coef") {
-                        m_ent_coef = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file ent_coef = " << m_ent_coef << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "vf_coef") {
-                        m_vf_coef = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file vf_coef = " << m_vf_coef << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "max_grad_norm") {
-                        m_max_grad_norm = stof(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file max_grad_norm = " << m_max_grad_norm << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "checkpoint_updates") {
-                        m_checkpoint_updates = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file checkpoint_updates = " << m_checkpoint_updates << std::endl;
-                    }
-
-                    else if (hyperParamStrings.at(i) == "max_episode_steps") {
-                        m_max_episode_steps = stoi(configText.substr(configText.find("=") + 1));
-                        std::cout << "Using config file max_episode_steps = " << m_max_episode_steps << std::endl;
-                    }
-
-                }
+        // Load Environment parameters
+        if (auto envSection = config["environment"]) {
+            if (auto val = envSection["obs_size"].value<int64_t>()) {
+                m_obs_size = *val;
+                std::cout << "Using config file obs_size = " << m_obs_size << std::endl;
             }
-            if (!identified) {
-                std::cout << "Unknown hyperparameter in \"PPOConfig.txt\" file: \"" << configText.substr(0, configText.find("=")) \
-                    << "\"" << std::endl;
-                exit(0);
+
+            if (auto val = envSection["action_size"].value<int64_t>()) {
+                m_action_size = *val;
+                std::cout << "Using config file action_size = " << m_action_size << std::endl;
+            }
+
+            if (auto val = envSection["max_episode_steps"].value<int64_t>()) {
+                m_max_episode_steps = *val;
+                std::cout << "Using config file max_episode_steps = " << m_max_episode_steps << std::endl;
             }
         }
 
-        m_batch_size = int(m_num_envs * m_num_steps);
-        m_minibatch_size = int(m_batch_size / m_num_minibatches);
-    }
+        // Load General parameters
+        if (auto generalSection = config["general"]) {
+            if (auto val = generalSection["seed"].value<int64_t>()) {
+                m_seed = *val;
+                std::cout << "Using config file seed = " << m_seed << std::endl;
+            }
 
+            if (auto val = generalSection["total_timesteps"].value<int64_t>()) {
+                m_total_timesteps = *val;
+                std::cout << "Using config file total_timesteps = " << m_total_timesteps << std::endl;
+            }
+
+            if (auto val = generalSection["use_cuda"].value<bool>()) {
+                m_use_cuda = *val;
+                std::cout << "Using config file use_cuda = " << (m_use_cuda ? "true" : "false") << std::endl;
+            }
+
+            if (auto val = generalSection["torch_deterministic"].value<bool>()) {
+                m_torch_deterministic = *val;
+                std::cout << "Using config file torch_deterministic = " << (m_torch_deterministic ? "true" : "false") << std::endl;
+            }
+
+            if (auto val = generalSection["checkpoint_updates"].value<int64_t>()) {
+                m_checkpoint_updates = *val;
+                std::cout << "Using config file checkpoint_updates = " << m_checkpoint_updates << std::endl;
+            }
+        }
+
+        // Load PPO specific parameters
+        if (auto ppoSection = config["ppo"]) {
+            if (auto val = ppoSection["learning_rate"].value<float>()) {
+                m_learning_rate = *val;
+                std::cout << "Using config file learning_rate = " << m_learning_rate << std::endl;
+            }
+
+            if (auto val = ppoSection["num_envs"].value<int64_t>()) {
+                m_num_envs = *val;
+                std::cout << "Using config file num_envs = " << m_num_envs << std::endl;
+            }
+
+            if (auto val = ppoSection["num_steps"].value<int64_t>()) {
+                m_num_steps = *val;
+                std::cout << "Using config file num_steps = " << m_num_steps << std::endl;
+            }
+
+            if (auto val = ppoSection["anneal_lr"].value<bool>()) {
+                m_anneal_lr = *val;
+                std::cout << "Using config file anneal_lr = " << (m_anneal_lr ? "true" : "false") << std::endl;
+            }
+
+            if (auto val = ppoSection["use_gae"].value<bool>()) {
+                m_use_gae = *val;
+                std::cout << "Using config file use_gae = " << (m_use_gae ? "true" : "false") << std::endl;
+            }
+
+            if (auto val = ppoSection["gamma"].value<float>()) {
+                m_gamma = *val;
+                std::cout << "Using config file gamma = " << m_gamma << std::endl;
+            }
+
+            if (auto val = ppoSection["gae_lambda"].value<float>()) {
+                m_gae_lambda = *val;
+                std::cout << "Using config file gae_lambda = " << m_gae_lambda << std::endl;
+            }
+
+            if (auto val = ppoSection["num_minibatches"].value<int64_t>()) {
+                m_num_minibatches = *val;
+                std::cout << "Using config file num_minibatches = " << m_num_minibatches << std::endl;
+            }
+
+            if (auto val = ppoSection["update_epochs"].value<int64_t>()) {
+                m_update_epochs = *val;
+                std::cout << "Using config file update_epochs = " << m_update_epochs << std::endl;
+            }
+
+            if (auto val = ppoSection["norm_adv"].value<bool>()) {
+                m_norm_adv = *val;
+                std::cout << "Using config file norm_adv = " << (m_norm_adv ? "true" : "false") << std::endl;
+            }
+
+            if (auto val = ppoSection["clip_coef"].value<float>()) {
+                m_clip_coef = *val;
+                std::cout << "Using config file clip_coef = " << m_clip_coef << std::endl;
+            }
+
+            if (auto val = ppoSection["clip_vloss"].value<bool>()) {
+                m_clip_vloss = *val;
+                std::cout << "Using config file clip_vloss = " << (m_clip_vloss ? "true" : "false") << std::endl;
+            }
+
+            if (auto val = ppoSection["ent_coef"].value<float>()) {
+                m_ent_coef = *val;
+                std::cout << "Using config file ent_coef = " << m_ent_coef << std::endl;
+            }
+
+            if (auto val = ppoSection["vf_coef"].value<float>()) {
+                m_vf_coef = *val;
+                std::cout << "Using config file vf_coef = " << m_vf_coef << std::endl;
+            }
+
+            if (auto val = ppoSection["max_grad_norm"].value<float>()) {
+                m_max_grad_norm = *val;
+                std::cout << "Using config file max_grad_norm = " << m_max_grad_norm << std::endl;
+            }
+        }
+
+        // Calculate derived values
+        m_batch_size = static_cast<int64_t>(m_num_envs * m_num_steps);
+        m_minibatch_size = static_cast<int64_t>(m_batch_size / m_num_minibatches);
+
+    }
+    catch (const toml::parse_error& err) {
+        std::cerr << "Error parsing config file: " << err.description() << "\n"
+            << "at " << err.source().path << ":" << err.source().begin.line << "\n";
+        std::cerr << "Using default PPO hyperparameters" << std::endl;
+    }
 }
 
 // Action logic (no_grad scope)
-std::vector<torch::Tensor> PPO_Discrete::computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& input_action)
-{
+AgentOutput PPO_Discrete::computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& input_action) const {
 
     torch::NoGradGuard no_grad;
-
-    std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(next_obs, input_action);
-
-    return { actionsAndValues[0],
-            actionsAndValues[1],
-            actionsAndValues[2],
-            actionsAndValues[3],
-            actionsAndValues[3].flatten() };
+    return m_agent->getActionAndValueDiscrete(next_obs);
 
 }
 
@@ -286,7 +271,7 @@ std::vector<torch::Tensor> PPO_Discrete::computeActionLogic(const torch::Tensor&
 // Estimation(GAE) algorithm or a regular advantage calculation, 
 // depending on whether the m_use_gae variable is true or false.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) {
+std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) const {
 
     torch::NoGradGuard no_grad;
 
@@ -301,7 +286,7 @@ std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& ne
         torch::Tensor advantages = torch::zeros_like(m_rewards).to(*m_device);
         torch::Tensor lastgaelam = torch::zeros({ 1, m_num_envs }).to(*m_device);
 
-        for (int t = m_num_steps - 1; t >= 0; t--) {
+        for (int64_t t = m_num_steps - 1; t >= 0; t--) {
 
             if (t == m_num_steps - 1) {
                 nextnonterminal = 1.0 - next_done;
@@ -326,7 +311,7 @@ std::array<torch::Tensor, 2> PPO_Discrete::calcAdvantage(const torch::Tensor& ne
         torch::Tensor next_return = torch::Tensor();
         
         torch::Tensor returns = torch::zeros_like(m_rewards).to(*m_device);
-        for (int t = m_num_steps - 1; t >= 0; t--) {
+        for (int64_t t = m_num_steps - 1; t >= 0; t--) {
 
             if (t == m_num_steps - 1) {
                 nextnonterminal = 1.0 - next_done;
@@ -361,7 +346,7 @@ torch::Tensor PPO_Discrete::getApproxKLAndClippedObj(const torch::Tensor& ratio,
 
     // Measure of how often the clipped objective is actually triggered
     torch::Tensor clippedRatios = torch::gt((ratio - 1.0).abs(), m_clip_coef);
-    m_clipfracs.push_back(float(clippedRatios.count_nonzero().item<int>()) / float(clippedRatios.size(0)));
+    m_clipfracs.push_back(static_cast<float>(clippedRatios.count_nonzero().item<int64_t>()) / static_cast<float>(clippedRatios.size(0)));
 
     //torch::Tensor old_approx_kl = (-logratio.mean()); // Original implementation approximates -log ratio
     torch::Tensor approx_kl = ((ratio - 1) - logratio).mean(); // Better estimator has been recently found
@@ -377,47 +362,55 @@ torch::Tensor PPO_Discrete::getApproxKLAndClippedObj(const torch::Tensor& ratio,
 // observation tensor for each environment and resetting each 
 // one. The observations are stored in a tensor and returned.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-torch::Tensor PPO_Discrete::initEnvs() {
+torch::Tensor PPO_Discrete::initEnvs() const {
+
+    // Runtime obs size check at init
+    std::vector<float> test_obs = m_envs[0]->reset();
+    
+    if (test_obs.size() != m_obs_size) {
+        std::string err_msg = "The environment returned an observation of size " + std::to_string(test_obs.size()) +
+            ", but your config defined the expected observation size to be " + std::to_string(m_obs_size) + ".\n" +
+            "Have you properly defined your PPOConfig.toml file for your environment?";
+        throw std::runtime_error(err_msg);
+    }
 
     // Construct initial_obs
     torch::Tensor obs = torch::zeros({ m_num_envs, m_obs_size }, torch::TensorOptions(*m_device).dtype(torch::kFloat32));
 
     // Put data into initial obs for each agent
-    for (int i = 0; i < m_num_envs; i++) {
-
-        // // Add job to pool to get initial observation from env
-        m_threadPool->queueJob([this, i, &obs]() mutable {
-
+    for (int64_t i = 0; i < m_num_envs; i++) {
+        // Add job to pool to get initial observation from env
+        m_threadPool->queueJob([this, i, &obs]() {
+ 
             // Create empty tensor observation
             torch::Tensor tensor_obs = torch::zeros(m_obs_size, torch::kFloat32);
 
             // Reset the environment and get a float vector of the state
             std::vector<float> vec_obs = m_envs[i]->reset();
-
-            // Copy float vector to tensor (Note: This is by far the fastest method to convert float vectors to tensors)
+                
+            // Copy vector data to tensor
             std::memcpy(tensor_obs.data_ptr(), vec_obs.data(), sizeof(float) * tensor_obs.numel());
             obs[i] = tensor_obs;
-
+            
         });
-
     }
 
     // Wait for all threads to finish
     m_threadPool->waitForJobsToFinish();
-
+    
     return obs;
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// stepEnvs() -> std::array<torch::Tensor, 3>
+// stepEnvs() -> std::tuple<torch::Tensor, torch::Tensor, torch::Tensor>
 // -------------------------
 // This function steps through each environment with the given action. 
 // It creates new tensors for observations, rewards, and done statuses, 
 // steps through the environment with the provided action, and checks 
-// if the environment has terminated.If it has, it resets the 
+// if the environment has terminated. If it has, it resets the 
 // environment and logs the reward and length of the episode.
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action) {
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor> PPO_Discrete::stepEnvs(const torch::Tensor& action) {
     
     // Construct initial vars
     torch::Tensor obs = torch::zeros({ m_num_envs, m_obs_size }, torch::TensorOptions(*m_device).dtype(torch::kFloat32));
@@ -429,11 +422,11 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
 
     // Create vector to log done and rewards
     std::vector<bool> envs_finished(m_num_envs, false);
-    std::vector<int> envs_length(m_num_envs, 0);
+    std::vector<int64_t> envs_length(m_num_envs, 0);
     std::vector<float> envs_reward(m_num_envs, 0);
 
     // Run a step in each environment
-    for (int i = 0; i < m_num_envs; i++) {
+    for (int64_t i = 0; i < m_num_envs; i++) {
 
         // // Add job to pool to get initial observation from env
         m_threadPool->queueJob([this, i, &obs, &reward, &done, &vec_action, &envs_finished, &envs_length, &envs_reward]() mutable {
@@ -478,17 +471,10 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
     m_threadPool->waitForJobsToFinish();
 
     // Log episode reward and length on episode completion
-    for (int i = 0; i < envs_finished.size(); i++) {
+    for (size_t i = 0; i < envs_finished.size(); i++) {
 
         if (envs_finished[i]) {
-
-            while (m_episode_rewards.size() >= (10 * m_num_envs)) { 
-                m_episode_rewards.pop_front();
-                m_episode_lengths.pop_front();
-            }
-            m_episode_rewards.push_back(envs_reward[i]);
-            m_episode_lengths.push_back(envs_length[i]);
-
+            m_episode_stats->add(envs_reward[i], envs_length[i]);
         }
 
     }
@@ -496,37 +482,33 @@ std::array<torch::Tensor, 3> PPO_Discrete::stepEnvs(const torch::Tensor& action)
     return { obs, reward, done };
 }
 
-
-
-
-
 void PPO_Discrete::train() {
     
     // Start the threads in a thread pool
     m_threadPool->start();
 
     // Initialize starting variables
-    unsigned int global_step = m_global_step;
+    uint64_t global_step = m_global_step;
     std::chrono::steady_clock::time_point start_time = std::chrono::steady_clock::now();
     std::chrono::steady_clock::time_point update_time = std::chrono::steady_clock::now();
-    torch::Tensor next_obs = torch::zeros({ m_num_envs, m_obs_size }, torch::kFloat32).to(*m_device);
-    torch::Tensor next_done = torch::zeros({ m_num_envs }).to(*m_device);
-    int num_updates = int((m_total_timesteps - global_step) / m_batch_size);
+    torch::Tensor next_obs = torch::zeros({ m_num_envs, m_obs_size }, torch::device(*m_device));
+    torch::Tensor next_done = torch::zeros({ m_num_envs }, torch::device(*m_device));
+    int64_t num_updates = static_cast<int64_t>((m_total_timesteps - global_step) / m_batch_size);
 
     // Setup environments
     next_obs = initEnvs();
     
     //    Variables required for scope in C++   //
-    torch::Tensor v_loss = torch::empty(1).requires_grad_();
-    torch::Tensor pg_loss = torch::empty(1).requires_grad_();
-    torch::Tensor entropy_loss = torch::empty(1).requires_grad_();
-    torch::Tensor loss = torch::empty(1).requires_grad_();
+    torch::Tensor v_loss = torch::empty(1, torch::requires_grad());
+    torch::Tensor pg_loss = torch::empty(1, torch::requires_grad());
+    torch::Tensor entropy_loss = torch::empty(1, torch::requires_grad());
+    torch::Tensor loss = torch::empty(1, torch::requires_grad());
     torch::Tensor approx_kl = torch::Tensor();
     torch::Tensor explained_var = torch::Tensor();
     //////////////////////////////////////////////
 
     // Training loop
-    for (int update = 1; update < num_updates + 1; update++) {
+    for (int64_t update = 1; update < num_updates + 1; update++) {
 
         // Annealing the learning rate if instructed to do so
         if (m_anneal_lr) {
@@ -539,30 +521,24 @@ void PPO_Discrete::train() {
         torch::Tensor done = torch::Tensor();
 
         // Policy Rollout Loop (where we run the environment with the current policy)
-        for (int step = 0; step < m_num_steps; step++) {
+        for (int64_t step = 0; step < m_num_steps; step++) {
 
             global_step += 1 * m_num_envs;
 
-            // Start by assigning previous gathered next_obs and next_done
+            // Start by storing previous gathered next_obs and next_done in rollout buffer
             m_obs[step] = next_obs;
             m_dones[step] = next_done;
 
             // During rollouts, we don't need to cache any gradients, so we compute
                     // actions, logprobs, and values under torch's no_grad context
-            std::vector<torch::Tensor> result = computeActionLogic(next_obs, torch::Tensor());
+            auto [action, logprob, _, value] = computeActionLogic(next_obs);
 
-            torch::Tensor action = result[0].unsqueeze(1);
-            torch::Tensor logprob = result[1];
-            torch::Tensor value = result[3];
-            m_values[step] = result[4];
-            m_actions[step] = action;
+            m_values[step] = value.flatten();
+            m_actions[step] = action.unsqueeze(static_cast<int64_t>(1));
             m_logprobs[step] = logprob;
 
             // Step the environment(s) with the calculated action from agent
-            std::array<torch::Tensor, 3> tensors = stepEnvs(action.cpu());
-            next_obs = tensors[0];
-            reward = tensors[1];
-            done = tensors[2];
+            std::tie(next_obs, reward, done) = stepEnvs(action.cpu());
 
             // Gather obs, rewards, and dones into policy rollout buffer
             m_rewards[step] = reward.to(*m_device).view(-1);
@@ -588,25 +564,25 @@ void PPO_Discrete::train() {
         std::vector<float>().swap(m_clipfracs); // Reset logging var
 
         // Optimizing the policy and value network
-        for (int epoch = 0; epoch < m_update_epochs; epoch++) {
+        for (int64_t epoch = 0; epoch < m_update_epochs; epoch++) {
 
             torch::Tensor b_inds = torch::randperm(m_batch_size); // We create shuffled indicies so that each 
                                                                   // minibatch contains an equal # of randomized items
 
             // Break up m_batch_size batch into mini batches for training
-            for (int start = 0; start < m_batch_size; start += m_minibatch_size) {
+            for (int64_t start = 0; start < m_batch_size; start += m_minibatch_size) {
 
-                int end = start + m_minibatch_size;
+                int64_t end = start + m_minibatch_size;
                 torch::Tensor mb_inds = b_inds.index({ torch::indexing::Slice(start, end) }); // Create a slice of the tensors to index
 
                 // Start with a forward pass on the minibatch observations, using the minibatched actions to keep the agent from sampling new actions
-                std::vector<torch::Tensor> actionsAndValues = m_agent->getActionAndValueDiscrete(
+                auto [_, newlogprob, entropy, newvalue] = m_agent->getActionAndValueDiscrete(
                     b_obs.index({ mb_inds }),
                     b_actions.to(torch::kLong).index({ mb_inds })
                 );
 
                 // Logarithmic subtraction between the new log probabilities - old log probabilities associated w/ the actions in the policy rollout phase
-                torch::Tensor logratio = actionsAndValues[1] - b_logprobs.index({ mb_inds });
+                torch::Tensor logratio = newlogprob - b_logprobs.index({ mb_inds });
                 torch::Tensor ratio = logratio.exp();
 
                 approx_kl = getApproxKLAndClippedObj(ratio, logratio);
@@ -614,7 +590,7 @@ void PPO_Discrete::train() {
                 // Get advantages and normalize them if it should
                 torch::Tensor mb_advantages = b_advantages.index({ mb_inds });
                 if (m_norm_adv) {
-                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8); // small scalar value to prevent div 0 err
+                    mb_advantages = (mb_advantages - mb_advantages.mean()) / (mb_advantages.std() + 1e-8f); // small scalar value to prevent div 0 err
                 }
 
                 // Clipped objective -- Policy loss
@@ -624,7 +600,7 @@ void PPO_Discrete::train() {
                                                                  // equivalent to min of positives like in paper
 
                 // Clipping value loss
-                torch::Tensor newvalue = actionsAndValues[3].view(-1);
+                newvalue = newvalue.view(-1);
                 if (m_clip_vloss) { // Original implementation uses clipping of value loss
 
                     torch::Tensor v_loss_unclipped = (newvalue - b_returns.index({ mb_inds })) * \
@@ -640,16 +616,16 @@ void PPO_Discrete::train() {
                         (v_clipped - b_returns.index({ mb_inds }));
 
                     torch::Tensor v_loss_max = torch::max(v_loss_unclipped, v_loss_clipped);
-                    v_loss = 0.5 * v_loss_max.mean();
+                    v_loss = 0.5f * v_loss_max.mean();
 
                 }
                 else { // Normally, value loss is implemented as a mse between the predicted values and emperical returns
-                    v_loss = 0.5 * ((newvalue - b_returns.index({ mb_inds })) * \
+                    v_loss = 0.5f * ((newvalue - b_returns.index({ mb_inds })) * \
                         (newvalue - b_returns.index({ mb_inds }))).mean();
                 }
 
                 // Entropy loss -- measure of chaos in action probability distribution
-                entropy_loss = actionsAndValues[2].mean();
+                entropy_loss = entropy.mean();
 
                 // Combine losses to get final loss value
                 loss =                  (pg_loss)       -     (m_ent_coef * entropy_loss)     +       (v_loss * m_vf_coef);
@@ -721,61 +697,59 @@ void PPO_Discrete::train() {
 // window. This is meant to mimic and be practically
 // identical to the printout generated by SB2/SB3
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-void PPO_Discrete::printPPOResults(int update, int global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
-                          torch::Tensor& approx_kl, torch::Tensor& entropy_loss, torch::Tensor& explained_var, torch::Tensor& loss,
-                          torch::Tensor& pg_loss, torch::Tensor& v_loss) {
+void PPO_Discrete::printPPOResults(int64_t update, int64_t global_step, std::chrono::milliseconds fps, std::chrono::milliseconds time_elapsed,
+    torch::Tensor& approx_kl, torch::Tensor& entropy_loss, torch::Tensor& explained_var, torch::Tensor& loss,
+    torch::Tensor& pg_loss, torch::Tensor& v_loss) {
 
     // Log limited data for first update
     if (update == 1) {
         std::cout << "---------------------------------\n";
-        if (m_episode_lengths.size() != 0) {
-            std::cout << "| rollout/           |          |\n" <<
-                std::setprecision(1) << std::defaultfloat <<
-                "|    ep_len_mean     | ";
-            printElement(std::accumulate(m_episode_lengths.begin(), m_episode_lengths.end(), 0) / m_episode_lengths.size(), 9);
-            std::cout << std::setprecision(5) <<
-                "|    ep_rew_mean     | ";
-            printElement(std::accumulate(m_episode_rewards.begin(), m_episode_rewards.end(), 0.0f) / m_episode_rewards.size(), 9);
+        if (!m_episode_stats->empty()) {
+            std::cout << "| rollout/           |          |\n";
+            std::cout << std::setprecision(1) << std::defaultfloat
+                << "|    ep_len_mean     | ";
+            printElement(m_episode_stats->avgLength(), 9);
+            std::cout << std::setprecision(5)
+                << "|    ep_rew_mean     | ";
+            printElement(m_episode_stats->avgReward(), 9);
         }
-        std::cout << "| time/              |          |\n" <<
-            "|    fps             | ";
-        printElement(int(m_batch_size / (fps.count() / 1000.0)), 9);
+        std::cout << "| time/              |          |\n";
+        std::cout << "|    fps             | ";
+        printElement(static_cast<int64_t>(m_batch_size / (fps.count() / 1000.0)), 9);
         std::cout << "|    iterations      | ";
         printElement(update, 9);
         std::cout << "|    time_elapsed    | ";
-        printElement(int(time_elapsed.count() / 1000.0), 9);
+        printElement(static_cast<int64_t>(time_elapsed.count() / 1000.0), 9);
         std::cout << "|    total_timesteps | ";
         printElement(global_step, 9);
         std::cout << "---------------------------------" << std::endl << std::endl;
-
     }
-
     // Log all data when not first update
     else {
-        float currentLearningRate = float(static_cast<torch::optim::AdamWOptions&>(m_optimizer->param_groups()[0].options()).lr());
+        float currentLearningRate = static_cast<float>(static_cast<torch::optim::AdamWOptions&>(m_optimizer->param_groups()[0].options()).lr());
 
         std::cout << "------------------------------------------\n";
-        if (m_episode_lengths.size() != 0) {
-            std::cout << "| rollout/                |              |\n" <<
-                std::setprecision(2) << std::fixed <<
-                "|    ep_len_mean          | ";
-            printElement(std::accumulate(m_episode_lengths.begin(), m_episode_lengths.end(), 0) / m_episode_lengths.size(), 13);
-            std::cout << std::setprecision(8) <<
-                "|    ep_rew_mean          | ";
-            printElement(std::accumulate(m_episode_rewards.begin(), m_episode_rewards.end(), 0.0f) / m_episode_rewards.size(), 13);
+        if (!m_episode_stats->empty()) {
+            std::cout << "| rollout/                |              |\n";
+            std::cout << std::setprecision(2) << std::fixed
+                << "|    ep_len_mean          | ";
+            printElement(m_episode_stats->avgLength(), 13);
+            std::cout << std::setprecision(8)
+                << "|    ep_rew_mean          | ";
+            printElement(m_episode_stats->avgReward(), 13);
         }
-        std::cout << "| time/                   |              |\n" <<
-            "|    fps                  | ";
-        printElement(int(m_batch_size / (fps.count() / 1000.0)), 13);
+        std::cout << "| time/                   |              |\n";
+        std::cout << "|    fps                  | ";
+        printElement(static_cast<int64_t>(m_batch_size / (fps.count() / 1000.0)), 13);
         std::cout << "|    iterations           | ";
         printElement(update, 13);
         std::cout << "|    time_elapsed         | ";
-        printElement(int(time_elapsed.count() / 1000.0), 13);
+        printElement(static_cast<int64_t>(time_elapsed.count() / 1000.0), 13);
         std::cout << "|    total_timesteps      | ";
         printElement(global_step, 13);
-        std::cout << "| train/                  |              |\n" <<
-            std::setprecision(9) <<
-            "|    approx_kl            | ";
+        std::cout << "| train/                  |              |\n";
+        std::cout << std::setprecision(9)
+            << "|    approx_kl            | ";
         printElement(approx_kl.item<float>(), 13);
         std::cout << "|    clip_fraction        | ";
         printElement(PPOUtils::getVectorMean(m_clipfracs), 13);
@@ -796,9 +770,7 @@ void PPO_Discrete::printPPOResults(int update, int global_step, std::chrono::mil
         std::cout << "|    value_loss           | ";
         printElement(v_loss.item<float>(), 13);
         std::cout << "------------------------------------------" << std::endl << std::endl;
-
     }
-
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -836,7 +808,7 @@ void PPO_Discrete::loadPolicyFromCheckpoint() {
         std::cout << "Loading model " << agentFileName << "..." << std::endl;
         std::string global_step_string = PPOUtils::getLoadFromSteps(agentFileName, "PPO_Agent_");
         // Update global step to previous 
-        m_global_step = (PPOUtils::isNumber(global_step_string)) ? stoi(global_step_string) : 0;
+        m_global_step = (PPOUtils::isNumber(global_step_string)) ? static_cast<uint64_t>(stoi(global_step_string)) : 0;
         std::cout << "Continuing training from step " << m_global_step << std::endl;
         torch::load(m_agent, agentFileName);
     }

@@ -1,0 +1,85 @@
+# CMake project running on multiple Ubuntu versions.
+name: Ubuntu Build (LibTorch 2.6.0, CUDA 12.6.3)-
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Customize the CMake build params
+  BUILD_TYPE: Release
+  LIBTORCH_URL: https://download.pytorch.org/libtorch/cu126/libtorch-shared-with-deps-2.6.0%2Bcu126.zip
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        ubuntu: ['20.04', '22.04', '24.04']
+      fail-fast: false  # Continue with other builds if one fails
+    
+    name: Ubuntu ${{ matrix.ubuntu }} Build
+    runs-on: ubuntu-${{ matrix.ubuntu }}
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Set Ubuntu-specific variables
+      run: |
+        ubuntu_version="${{ matrix.ubuntu }}"
+        ubuntu_version_no_dots=$(echo $ubuntu_version | tr -d '.')
+        echo "CUDNN_URL=https://developer.download.nvidia.com/compute/cudnn/9.7.1/local_installers/cudnn-local-repo-ubuntu${ubuntu_version_no_dots}-9.7.1_1.0-1_amd64.deb" >> $GITHUB_ENV
+
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.21
+      id: cuda-toolkit-linux
+      with:
+        cuda: '12.6.3'
+        method: 'network'
+        sub-packages: '["nvcc", "nvtx", "nvrtc", "nvrtc-dev", "cudart", "cudart-dev"]'
+        non-cuda-sub-packages: '["libcublas", "libcublas-dev"]'
+
+    - name: Verify CUDA Toolkit Installation
+      run: |
+        echo "Installed cuda version is: ${{steps.cuda-toolkit-linux.outputs.cuda}}"
+        echo "Cuda install location: ${{steps.cuda-toolkit-linux.outputs.CUDA_PATH}}"
+        nvcc -V
+        cmake --version
+
+    - name: Add CUDA Toolkit Paths
+      run: |
+        echo "CUDAToolkit_ROOT=${{ steps.cuda-toolkit-linux.outputs.CUDA_PATH }}" >> $GITHUB_ENV
+
+    - name: Download and Install LibTorch
+      run: |
+        curl -L ${{ env.LIBTORCH_URL }} --output libtorch.zip
+        unzip -q libtorch.zip -d libtorch
+        sudo apt update
+        sudo apt install libtbb-dev ninja-build
+        echo "LibTorch_ROOT=$PWD/libtorch/libtorch" >> $GITHUB_ENV
+
+    - name: Download and Install cuDNN
+      run: |
+        curl -L ${{ env.CUDNN_URL }} --output cudnn-local-repo.deb
+        sudo dpkg -i cudnn-local-repo.deb
+        sudo cp /var/cudnn-local-repo-ubuntu*/cudnn-*-keyring.gpg /usr/share/keyrings/
+        sudo apt-get update
+        sudo apt-get -y install cudnn-cuda-12
+
+    - name: Configure CMake
+      run: |
+        cmake --preset linux-release -DCUDAToolkit_ROOT=${{ env.CUDAToolkit_ROOT }} -DCMAKE_PREFIX_PATH=${{ env.LibTorch_ROOT }}
+
+    - name: Build
+      run: |
+        cd ./build/linux-release/
+        cmake --build . --config ${{ env.BUILD_TYPE }}
+
+    - name: Test Build
+      run: |
+        cd ./build/linux-release/
+        ./CompilationChecker

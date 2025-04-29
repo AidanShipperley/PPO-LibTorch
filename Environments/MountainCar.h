@@ -27,10 +27,10 @@ class MountainCar {
 		std::vector<float> state;
 
 		// Algo Parameters
-		std::vector<int> actionSpace;
+		std::vector<int64_t> actionSpace;
 
 		// Logging Parameters
-		int episode_length;
+		int64_t episode_length;
 		float episode_reward;
 
 
@@ -39,7 +39,7 @@ class MountainCar {
 		~MountainCar();
 
 		// Required Env Functions
-		std::tuple<std::vector<float>, float, bool, bool> step(int action);
+		std::tuple<std::vector<float>, float, bool, bool> step(const int64_t& action);
 		std::vector<float> reset();
 
 		// Other Env Functions

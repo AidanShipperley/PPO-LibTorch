@@ -5,7 +5,7 @@
 float PPOUtils::getVectorMean(std::vector<float> vector) {
 
     float runningTotal = 0.f;
-    for (int i = 0; i < vector.size(); i++) {
+    for (size_t i = 0; i < vector.size(); i++) {
         runningTotal += vector[i];
     }
 

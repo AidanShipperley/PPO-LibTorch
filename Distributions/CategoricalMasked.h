@@ -23,7 +23,7 @@ public:
     torch::Tensor enumerate_support();
 
     torch::Tensor m_logits, m_probs, m_masks;
-    int m_num_events;
+    int64_t m_num_events;
 
     std::shared_ptr<torch::Device> m_device;
 

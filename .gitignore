@@ -18,6 +18,7 @@
 mono_crash.*
 
 # Build results
+build/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -400,4 +401,5 @@ FodyWeavers.xsd
 =======
 .vs/
 out/
+.vscode/
 >>>>>>> 6a5d9d4 (First commit, do not use code)

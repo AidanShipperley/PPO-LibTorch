@@ -1,0 +1,33 @@
+# PPO Configuration File for CartPole
+
+[environment]
+# Observation and action space parameters
+obs_size = 4               # Observation space size
+action_size = 1            # Action space size
+max_episode_steps = 500    # Maximum steps per episode
+
+[general]
+# General training parameters
+seed = 2                   # Random seed
+total_timesteps = 100000   # Total timesteps to run
+use_cuda = false           # Whether to use CUDA
+torch_deterministic = true # Make PyTorch operations deterministic
+checkpoint_updates = 50    # Save checkpoints every N updates
+
+[ppo]
+# PPO algorithm specific parameters
+learning_rate = 0.001      # Learning rate
+num_envs = 8               # Number of parallel environments
+num_steps = 32             # Steps per environment per update
+anneal_lr = true           # Whether to anneal the learning rate
+use_gae = true             # Whether to use GAE
+gamma = 0.98               # Discount factor
+gae_lambda = 0.95          # GAE lambda parameter
+num_minibatches = 4        # Number of minibatches per update
+update_epochs = 10         # Number of epochs to update the policy
+norm_adv = true            # Normalize advantage estimates
+clip_coef = 0.2            # PPO clip coefficient
+clip_vloss = true          # Whether to clip value loss
+ent_coef = 0.0             # Entropy coefficient
+vf_coef = 0.5              # Value function coefficient
+max_grad_norm = 0.5        # Maximum gradient norm for clipping

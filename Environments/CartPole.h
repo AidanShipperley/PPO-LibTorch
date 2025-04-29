@@ -41,11 +41,11 @@ class CartPole {
       bool terminated;
 
 	  // Logging Parameters
-	  int episode_length;
+	  int64_t episode_length;
 	  float episode_reward;
 
 	  // Construction and Destruction
-	  CartPole(int seed);
+	  CartPole(int64_t seed);
 	  ~CartPole();
 
       /*
@@ -70,10 +70,8 @@ class CartPole {
       CartPole& operator=(CartPole&&) = default;
 
 	  // Required Env Functions
-	  std::tuple<std::vector<float>, float, bool, bool> step(const int action);
+	  std::tuple<std::vector<float>, float, bool, bool> step(const int64_t& action);
 	  std::vector<float> reset();
-
-      
 
 };
 

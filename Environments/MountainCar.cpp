@@ -26,7 +26,7 @@ MountainCar::~MountainCar() {
 }
 
 
-std::tuple<std::vector<float>, float, bool, bool> MountainCar::step(int action) {
+std::tuple<std::vector<float>, float, bool, bool> MountainCar::step(const int64_t& action) {
 
 	float& position = state[0];
 	float& velocity = state[1];

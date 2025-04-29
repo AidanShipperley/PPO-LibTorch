@@ -2,7 +2,7 @@
 //
 
 //#include "PPO_MultiDiscrete.h"
-#include "PPO_Discrete.h"
+#include "PPO/PPO_Discrete.h"
 
 int main()
 {
@@ -15,6 +15,7 @@ int main()
 	catch (const std::exception& ex) {
 		std::cerr << "Error Occured: " << ex.what() << std::endl;
 	}
+	
 
 	return 0;
 
