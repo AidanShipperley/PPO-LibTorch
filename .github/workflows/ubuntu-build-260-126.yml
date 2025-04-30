@@ -17,7 +17,7 @@ jobs:
   build:
     strategy:
       matrix:
-        ubuntu: ['20.04', '22.04', '24.04']
+        ubuntu: ['22.04', '24.04']
       fail-fast: false  # Continue with other builds if one fails
     
     name: Ubuntu ${{ matrix.ubuntu }} Build
