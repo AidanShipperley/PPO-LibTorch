@@ -69,7 +69,7 @@ PPO_Discrete::PPO_Discrete() {
     std::cout << "m_obs_size: " << m_obs_size << std::endl;
     std::cout << "m_action_size: " << m_action_size << std::endl;
 
-    m_agent = std::make_shared<Agent>(m_obs_size, m_action_size + 1, m_device);
+    m_agent = std::make_shared<Agent>(m_obs_size, m_action_size, m_device);
     m_agent->to(*m_device);
 
     // Initialize Adam optimizer with respect to agents parameters
@@ -88,7 +88,7 @@ PPO_Discrete::PPO_Discrete() {
 
     // Initialize storage variables
     m_obs = torch::zeros({ m_num_steps, m_num_envs, m_obs_size }).to(*m_device);
-    m_actions = torch::zeros({ m_num_steps, m_num_envs, m_action_size }).to(*m_device);
+    m_actions = torch::zeros({ m_num_steps, m_num_envs, 1 }).to(*m_device);
     m_logprobs = torch::zeros({ m_num_steps, m_num_envs }).to(*m_device);
     m_rewards = torch::zeros({ m_num_steps, m_num_envs }).to(*m_device);
     m_dones = torch::zeros({ m_num_steps, m_num_envs }).to(*m_device);
@@ -255,7 +255,7 @@ void PPO_Discrete::getArgs() {
 }
 
 // Action logic (no_grad scope)
-AgentOutput PPO_Discrete::computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& input_action) const {
+AgentOutput PPO_Discrete::computeActionLogic(const torch::Tensor& next_obs) const {
 
     torch::NoGradGuard no_grad;
     return m_agent->getActionAndValueDiscrete(next_obs);
@@ -554,9 +554,9 @@ void PPO_Discrete::train() {
         auto [returns, advantages] = calcAdvantage(next_obs, next_done);
 
         // Flatten the batch
-        torch::Tensor b_obs = m_obs.reshape({ m_batch_size, m_obs_size });
+        torch::Tensor b_obs = m_obs.reshape({ -1, m_obs_size });
         torch::Tensor b_logprobs = m_logprobs.reshape(-1);
-        torch::Tensor b_actions = m_actions.reshape({ m_batch_size, m_action_size });
+        torch::Tensor b_actions = m_actions.reshape(-1);
         torch::Tensor b_advantages = advantages.reshape(-1);
         torch::Tensor b_returns = returns.reshape(-1);
         torch::Tensor b_values = m_values.reshape(-1);

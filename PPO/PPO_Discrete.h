@@ -32,7 +32,7 @@ public:
     void loadPolicyFromCheckpoint();
 
     // ALGO LOGIC
-    AgentOutput computeActionLogic(const torch::Tensor& next_obs, const torch::Tensor& action = torch::Tensor()) const;
+    AgentOutput computeActionLogic(const torch::Tensor& next_obs) const;
     std::array<torch::Tensor, 2> calcAdvantage(const torch::Tensor& next_obs, const torch::Tensor& next_done) const;
     torch::Tensor getApproxKLAndClippedObj(const torch::Tensor& ratio, const torch::Tensor& logratio);
 
