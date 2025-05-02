@@ -8,7 +8,7 @@
     <a href="https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml" rel="nofollow"><img alt="Windows Build (Torch 2.6.0|CUDA 12.6.3)" src="https://github.com/AidanShipperley/PPO-LibTorch/actions/workflows/windows-build-260-126.yml/badge.svg" style="max-width:100%;"></a>
 </p>
 
-**PPO-LibTorch** is a robust, high-performance, fully open-source implementation of [**Proximal Policy Optimization (PPO)**](https://openai.com/index/openai-baselines-ppo/) built purely in C++ using [**LibTorch**](https://pytorch.org/cppdocs/frontend.html), the official C++ frontend for [**PyTorch**](https://pytorch.org/). PPO-LibTorch is a clean, efficient, and fully customizable PPO implementation optimized for performance-critical environments requiring low latency, high performance, or multithreaded environments where existing Python implementations may not be practical.
+**PPO-LibTorch** is a robust, high-performance, fully open-source implementation of [**Proximal Policy Optimization (PPO)**](https://openai.com/index/openai-baselines-ppo/) built purely in C++ using [**LibTorch**](https://pytorch.org/cppdocs/frontend.html), the official C++ frontend for [**PyTorch**](https://pytorch.org/). PPO-LibTorch is optimized for performance-critical environments requiring low latency, high performance, or multithreaded environments where existing Python implementations may not be practical.
 
 Inspired by the insightful [ICLR PPO Implementation Blog by Huang, et al.](https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/), PPO-LibTorch prioritizes clarity, performance, and usability.
 
